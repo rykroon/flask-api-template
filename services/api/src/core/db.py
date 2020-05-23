@@ -1,0 +1,10 @@
+import os
+from pymongo import MongoClient
+from redis import Redis
+
+mongo_host = os.getenv('MONGODB_HOST')
+mongo = MongoClient(host=mongo_host)
+
+redis_host = os.getenv('REDIS_HOST')
+redis_pass = os.getenv('REDIS_PASSWORD')
+redis0 = Redis(host=redis_host, password=redis_pass, db=0)

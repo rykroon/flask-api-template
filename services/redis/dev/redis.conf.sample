@@ -1,0 +1,8 @@
+bind 127.0.0.1 redis_svc
+requirepass <password>
+rename-command FLUSHDB ""
+rename-command FLUSHALL ""
+rename-command DEBUG ""
+rename-command CONFIG ""
+
+

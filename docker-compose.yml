@@ -1,0 +1,21 @@
+version: '3'
+services:
+  api_svc:
+    build: ./services/api
+    container_name: my_api
+    depends_on:
+      - redis_svc
+    env_file:
+      - services/api/dev/env
+    image: my_api_img
+    networks:
+      - my_network
+  redis_svc: 
+    build: ./services/redis
+    container_name: my_redis
+    image: my_redis_img
+    networks:        
+      - my_network
+networks:
+  my_network:
+
