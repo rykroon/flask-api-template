@@ -1,109 +1,50 @@
 # standard library imports
 from base64 import urlsafe_b64encode
 import crypt
-from datetime import datetime, timedelta
 from hashlib import sha256
+import ipaddress
 import os
 import secrets
 import string
+import time
 
 # third party imports
-from email_validator import EmailNotValidError, validate_email
+from mongoengine import ValidationError, CASCADE
+from mongoengine.fields import BooleanField, EmailField, IntField, ListField, \
+    ReferenceField, StringField
 from nltk.corpus import words
 import requests
 
 # local imports
-from core.models import MongoModel, RedisModel, RefField
-from core.descriptors import DictAttrDescriptor
+from core.models import BaseDocument, CacheMixin
 
 
 class InvalidPassword(Exception):
     pass
 
 
-class OpenIdConnectMixin:
+class PasswordPolicy(BaseDocument):
     """
-        A Mixin Class for users
+        Default values based off of NIST Publication 800-63B
+        https://pages.nist.gov/800-63-3/sp800-63b.html
+        Section 5.1.1.2 Memorized Secret Verifiers
     """
 
-    SCOPES = {
-        'profile': (
-            'name', 
-            'family_name', 
-            'given_name', 
-            'middle_name', 
-            'nickname', 
-            'preferred_username', 
-            'profile', 
-            'picture', 
-            'website', 
-            'gender', 
-            'birthdate', 
-            'zoneinfo', 
-            'locale', 
-            'updated_at'
-        ),
-        'email': (
-            'email', 
-            'email_verified'
-        ),
-        'address': (
-            'address', 
-        ),
-        'phone': (
-            'phone_number', 
-            'phone_number_verified'
-        )
-    }
-
-    formatted = DictAttrDescriptor('address')
-    street_address = DictAttrDescriptor('address')
-    locality = DictAttrDescriptor('address')
-    region = DictAttrDescriptor('address')
-    postal_code = DictAttrDescriptor('address')
-    country = DictAttrDescriptor('address')
-
-    def info(self, scopes=['profile', 'email', 'address', 'phone']):
-        claims = []
-        for scope in scopes:
-            claims.extend(self.__class__.SCOPES.get(scope))
-
-        d = dict(vars(self))
-        info = {k: v for k, v in d.items() if k in claims}
-        info['sub'] = self.pk
-        return info
-
-
-class PasswordPolicy(MongoModel):
-    database_name = 'auth_db'
-    collection_name = 'password_policies'
-
-    def __init__(self, min_length=8, max_length=64, 
-        require_alpha=False, require_lower=False, require_upper=False, require_digit=False, require_special=False, 
-        allow_whitespace=True, allow_unicode=True, allow_dictionary_words=False, blacklist=[]):
-        self.min_length = min_length
-        self.max_length = max_length
-        self.require_alpha = require_alpha
-        self.require_lower = require_lower
-        self.require_upper = require_upper
-        self.require_digit = require_digit
-        self.require_special = require_special
-        self.allow_whitespace = allow_whitespace
-        self.allow_unicode = allow_unicode
-        self.allow_dictionary_words = allow_dictionary_words
-        self.blacklist = blacklist
-        self.is_active = False
+    min_length = IntField(default=8)
+    max_length = IntField(default=64)
+    require_lower = BooleanField(default=False)
+    require_upper = BooleanField(default=False)
+    require_digit = BooleanField(default=False)
+    require_special = BooleanField(default=False)
+    only_ascii = BooleanField(default=False)
+    allow_whitespace = BooleanField(default=True)
+    allow_dictionary_words = BooleanField(default=False)
+    blacklist = ListField(StringField(), default=list)
+    is_active = BooleanField(default=False)
 
     def get_words(self, min_length=4):
         w = [word.lower() for word in words.words() if len(word) >= min_length]
         return list(set(w))
-
-    def is_unicode(self, s):
-        try:
-            s.encode('ascii')
-            return False
-        except UnicodeEncodeError:
-            return True
 
     def set_blacklist(self):
         url =  "https://raw.githubusercontent.com/danielmiessler/SecLists/master/Passwords/Common-Credentials/10-million-password-list-top-1000000.txt"
@@ -111,150 +52,107 @@ class PasswordPolicy(MongoModel):
         if response.ok:
             self.blacklist = response.content.decode().split('\n')
 
-    def validate_password(self, password, raise_exc=True):
+    def validate_password(self, password):
         if self.min_length:
             if len(password) < self.min_length:
-                if raise_exc:
-                    raise InvalidPassword("min_length")
-                return False
+                raise InvalidPassword("min_length")
 
         if self.max_length:
             if len(password) > self.max_length:
-                if raise_exc:
-                    raise InvalidPassword('max_length')
-                return False
-
-        if self.require_alpha:
-            if not any([char.isalpha() for char in password]):
-                if raise_exc:
-                    raise InvalidPassword('require_alpha')
-                return False
-
-        if self.require_lower:
-            if not any([char.islower() for char in password]):
-                if raise_exc:
-                    raise InvalidPassword('require_lower')
-                return False
+                raise InvalidPassword('max_length')
 
         if self.require_upper:
             if not any([char.isupper() for char in password]):
-                if raise_exc:
-                    raise InvalidPassword('require_upper')
-                return False
+                raise InvalidPassword('require_upper')
 
         if self.require_digit:
             if not any(char.isdigit() for char in password):
-                if raise_exc:
-                    raise InvalidPassword('require_digit')
-                return False
+                raise InvalidPassword('require_digit')
 
         if self.require_special:
             if not any(char in string.punctuation for char in password):
-                if raise_exc:
-                    raise InvalidPassword('require_special')
-                return False
+                raise InvalidPassword('require_special')
 
         if not self.allow_whitespace:
             if any(char in string.whitespace for char in password):
-                if raise_exc:
-                    raise InvalidPassword('white space not allowed')
-                return False
+                raise InvalidPassword('white space not allowed')
 
-        if not self.allow_unicode:
-            if self.is_unicode(password):
-                if raise_exc:
-                    raise InvalidPassword('unicode not allowed')
-                return False
+        if self.only_ascii:
+            if not all([char.is_ascii() for char in password]):
+                raise InvalidPassword('only ascii characters are allowed')
 
         if not self.allow_dictionary_words:
             for word in self.get_words():
                 if word in password.lower():
-                    if raise_exc:
-                        raise InvalidPassword('password contains dictionary words')
-                    return False
+                    raise InvalidPassword('password contains dictionary words')
 
         if self.blacklist:
             if password in self.blacklist:
-                if raise_exc:
-                    raise InvalidPassword('password is common')
-                return False
+                raise InvalidPassword('password is common')
 
         return True
 
-    def save(self):
+    def clean(self):
+        super().clean()
         if self.is_active == True:
-            current_active_policy = self.__class__.query.filter(is_active=True, _id={'$ne': self.pk}).one_or_none()
+            current_active_policy = self.__class__.objects.filter(is_active=True, pk__ne=self.pk).first()
             if current_active_policy:
                 current_active_policy.is_active = False
                 current_active_policy.save()
-        
-        super().save()
 
 
-class User(MongoModel, OpenIdConnectMixin):
-    database_name = 'auth_db'
-    collection_name = 'users'
+def mksalt():
+    return crypt.mksalt(crypt.METHOD_SHA256)
 
-    def __init__(self, email, password):
+
+class User(BaseDocument):
+
+    email = EmailField(required=True)
+    email_verified = BooleanField(default=False)
+    phone_number = StringField(null=True)
+    phone_number_verified = BooleanField(default=False)
+    salt = StringField(default=mksalt)
+    password = StringField(required=True)
+
+    def __init__(self, email, password, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.email = email
-        self.salt = crypt.mksalt(crypt.METHOD_SHA256)
-        self.password = password
-        self.failed_login_attempts = 0
-        self.lockout_date = None      
-
-    def __setattr__(self, attr, value):
-        if attr == 'email':
-            self._set_email(value)
-
-        elif attr == 'password':
-            self._set_password(value)
-
-        elif attr == 'phone_number':
-            self._set_phone_number(value)
-
-        else:
-            return super().__setattr__(attr, value)
-
-    def _set_email(self, email):
-        try:
-            validate_email(email)
-        except EmailNotValidError as e:
-            raise ValueError("Invalid email")
-
-        self.__dict__['email'] = email
+        self.set_password(password)
+        #self.password = password
+        #self.failed_login_attempts = 0
+        #self.lockout_date = None 
+    
+    def set_email(self, email):
+        self.email = email
         self.email_verified = False
 
-    def _set_password(self, password):
-        policy = PasswordPolicy.query.filter(is_active=True).one_or_none()
+    def set_phone_number(self, phone_number):
+        self.phone_number = phone_number
+        self.phone_number_verified = False
+
+    def set_password(self, password):
+        policy = PasswordPolicy.objects.filter(is_active=True).first()
         if policy:
             policy.validate_password(password)
 
         salted_password = "{}{}".format(password, self.salt)
-        self.__dict__['password'] = sha256(salted_password.encode()).hexdigest()
-
-    def _set_phone_number(self, phone_number):
-        self.__dict__['phone_number'] = phone_number
-        self.phone_number_verified = False
+        self.password = sha256(salted_password.encode()).hexdigest()
 
     def check_password(self, password):
         salted_password = "{}{}".format(password, self.salt)
         hashed_password = sha256(salted_password.encode()).hexdigest()
         return self.password == hashed_password
 
-    def save(self):
-        self.updated_at = datetime.utcnow().timestamp()
-        super().save()
+
+class Resource(BaseDocument):
+    user = ReferenceField('User', reverse_delete_rule=CASCADE)
+
+    meta = {
+        'abstract': True
+    }
 
 
-class Resource(MongoModel):
-    database_name = 'resource_db'
-    user = RefField(User)
-
-
-class Client(MongoModel):
-    database_name = 'auth_db'
-    collection_name = 'clients'
-
+class Client(BaseDocument):
     #from the oauth2.1 draft
     CONFIDENTIAL = 'confidential'
     PUBLIC = 'public'
@@ -269,28 +167,23 @@ class Client(MongoModel):
         NATIVE_APPLICATION: PUBLIC
     }
 
+    app_name = StringField(required=True)
+    description = StringField(required=True)
+    type = StringField(required=True, choices=TYPES)
+    profile = StringField(required=True, choices=PROFILES)
+    secret = StringField(null=True)
+
     def __init__(self, app_name, description, profile):
         self.app_name = app_name
         self.description = description
         self.profile = profile
-
         self.secret = None
         if self.is_confidential():
             self.secret = secrets.token_urlsafe(32)
-
-    def __setattr__(self, attr, value):
-        if attr == 'profile':
-            self._set_profile(value)
-        if attr == 'type':
-            raise AttributeError("can't set attribute")
-        else:
-            super().__setattr__(attr, value)
-
-    def _set_profile(self, profile):
-        if profile not in self.__class__.PROFILES:
-            raise ValueError("Invalid client profile")
-        self.__dict__['profile'] = profile
-        self.__dict__['type'] = self.__class__.PROFILES[self.profile]
+    
+    def clean(self):
+        super().clean()
+        self.type = self.__class__.PROFILES.get(self.profile)
 
     def is_confidential(self):
         return self.type == self.__class__.CONFIDENTIAL
@@ -299,35 +192,44 @@ class Client(MongoModel):
         return self.type == self.__class__.PUBLIC
 
 
-class SecretMixin(RedisModel):
+class SecretMixin(CacheMixin):
+    ttl = None
     nbytes = None #
-    client = RefField(Client)
-    user = RefField(User)
 
     def __init__(self, client, user, scope=None):
-        self.__dict__[self._cls.primary_key_field] = secrets.token_urlsafe(self._cls.nbytes)
-        self.client = client
-        self.user = user
+        self.secret = secrets.token_urlsafe(self.__class__.nbytes)
+        self.client_id = client.pk
+        self.user_id = user.pk
         self.scope = scope
+
+    @property
+    def cache_key(self):
+        return self.secret
+
+    def get_client(self):
+        return Client.objects.get(pk=self.client_id)
+
+    def get_user(self):
+        return User.objects.get(pk=self.user_id)
 
     def __str__(self):
         return self.pk
 
+    def to_cache(self):
+        return super().set(ex=self.__class__.ttl)
 
-class RefreshToken(SecretMixin, RedisModel):
-    primary_key_field = 'token'
+
+class RefreshToken(SecretMixin):
     ttl = 86400 # 1 day
     nbytes = 128
 
 
-class AccessToken(SecretMixin, RedisModel):
-    primary_key_field = 'token'
+class AccessToken(SecretMixin):
     ttl = 3600 #1 hour
     nbytes = 64
 
 
-class AuthorizationCode(SecretMixin, RedisModel):
-    primary_key_field = 'code'
+class AuthorizationCode(SecretMixin):
     ttl = 60 #1 minute
     nbytes = 32
 
@@ -353,3 +255,43 @@ class AuthorizationCode(SecretMixin, RedisModel):
         return False
 
 
+class Throttle(CacheMixin):
+    """
+        A rate limiting class that uses the sliding window algorithm
+    """
+
+    cache = None
+
+    def __init__(self, key_func, rate, scope=None):
+        self.key_func = key_func
+        self.num_requests, self.duration = self.parse_rate(rate)
+        self.scope = scope
+        self.history = self.cache.get(self.cache_key, [])
+
+    @property
+    def cache_key(self):
+        return 'throttle:{}:{}'.format(self.scope, self.key_func())
+
+    def parse_rate(self, rate):
+        """
+        Given the request rate string, return a two tuple of:
+        <allowed number of requests>, <period of time in seconds>
+        """
+        if rate is None:
+            return (None, None)
+        num, period = rate.split('/')
+        num_requests = int(num)
+        duration = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}[period[0]]
+        return (num_requests, duration)
+
+    def allow_request(self):
+        start_of_window = time.time() - self.duration
+        while self.history and self.history[-1] < start_of_window:
+            self.history.pop()
+
+        if len(self.history) > self.num_requests:
+            return False
+
+        self.history.insert(0, time.time())
+        self.cache.set(self.cache_key, self.history, self.duration)
+        return True

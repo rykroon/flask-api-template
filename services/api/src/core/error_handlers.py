@@ -36,6 +36,13 @@ def method_not_allowed(e):
     ), 405
 
 
+def too_many_requests(e):
+    return jsonify(
+        error='too_many_requests',
+        error_description=str(e)
+    ), 429
+
+
 def internal_server_error(e):
     return jsonify(
         error='internal_server_error',
@@ -49,5 +56,6 @@ error_handlers = {
     403: forbidden, 
     404: not_found, 
     405: method_not_allowed, 
+    429: too_many_requests,
     500: internal_server_error
 }

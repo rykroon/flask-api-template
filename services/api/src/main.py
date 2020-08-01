@@ -10,13 +10,11 @@ def create_app():
     for code, handler in error_handlers.items():
         app.register_error_handler(code, handler)
 
-    from auth.endpoints import blueprints as auth_blueprints
-    for bp in auth_blueprints:
-        app.register_blueprint(bp)
+    from auth import blueprint as auth_bp
+    app.register_blueprint(auth_bp)
 
-    from app.endpoints import blueprints as app_blueprints
-    for bp in app_blueprints:
-        app.register_blueprint(bp)
+    from app import blueprint as app_bp
+    app.register_blueprint(app_bp)
 
     @app.route('/health', methods=['GET'])
     def health():
