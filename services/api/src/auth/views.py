@@ -30,8 +30,8 @@ class ResourceView(DocumentView):
         if not is_authorized:
             abort(403, 'Not authorized to the resource')
 
-    def _get_document(self, id):
-        document = super()._get_document(id)
+    def _retrieve_document(self, id):
+        document = super()._retrieve_document(id)
         if not g.user.pk == document.user_id:
             abort(403, "Not authorized to the resource")
         return document

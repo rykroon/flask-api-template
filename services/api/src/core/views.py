@@ -9,7 +9,7 @@ class DocumentView(MethodView):
     def dispatch_request(self, *args, **kwargs):
         id = kwargs.pop('id', None)
         if id is not None:
-            document = self._get_document(id)
+            document = self._retrieve_document(id)
             if document is None:
                 abort(404)
             return super().dispatch_request(document, *args, **kwargs)
@@ -21,7 +21,7 @@ class DocumentView(MethodView):
             return jsonify(document.to_dict())
 
         qs = self._get_queryset()
-        documents = list(qs._cursor)
+        documents = qs.as_pymongo()
         return jsonify(documents)
 
     def post(self):
@@ -35,9 +35,6 @@ class DocumentView(MethodView):
     def delete(self, document):
         self._destroy_document(document)
         return "", 204
-
-    def _get_document(self, id):
-        return self.__class__.document_class.objects.get(pk=id)
 
     def _get_queryset(self):
         query_args = request.args.to_dict()
@@ -73,6 +70,9 @@ class DocumentView(MethodView):
         document = self.__class__.document_class(**data)
         document.save()
         return document
+
+    def _retrieve_document(self, id):
+        return self.__class__.document_class.objects.get(pk=id)
 
     def _update_document(self, document):
         data = request.get_json()
