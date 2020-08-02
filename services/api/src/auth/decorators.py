@@ -5,8 +5,8 @@ import pickle
 
 from flask import abort, g, request
 
-from core.db import redis0
-from auth.models import AccessToken, RefreshToken, Client, User, Throttle, AnonThrottle, UserThrottle
+from db import redis_client
+from auth.models import AccessToken, RefreshToken, Client, User, Throttle
 
 
 def auth(func):

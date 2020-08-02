@@ -3,7 +3,7 @@ import pickle
 
 from mongoengine import Document, DateTimeField
 
-from core.db import redis0
+from db import redis_client
 
 
 class BaseDocument(Document):
@@ -27,14 +27,14 @@ class BaseDocument(Document):
 class Cache:
 
     def __contains__(self, key):
-        return key in redis0
+        return key in redis_client
 
     def add(self, key, value, timeout=None):
         value = self._to_pickle(value)
-        return redis0.set(key, value, ex=timeout, nx=True)
+        return redis_client.set(key, value, ex=timeout, nx=True)
 
     def get(self, key, default=None):
-        value = redis0.get(key)
+        value = redis_client.get(key)
         if value is None:
             return default
         value = self._from_pickle(value)
@@ -42,10 +42,10 @@ class Cache:
 
     def set(self, key, value, timeout=None):
         value = self._to_pickle(value)
-        return redis0.set(key, value, ex=timeout)
+        return redis_client.set(key, value, ex=timeout)
 
     def delete(self, key):
-        return redis0.delete(key) == 1
+        return redis_client.delete(key) == 1
 
     def _to_pickle(self, value):
         if not isinstance(value, (bytes, str, int, float)):
