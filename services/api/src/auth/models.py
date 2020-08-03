@@ -6,7 +6,6 @@ import ipaddress
 import os
 import secrets
 import string
-import time
 
 # third party imports
 from mongoengine import ValidationError, CASCADE
@@ -255,43 +254,4 @@ class AuthorizationCode(SecretMixin):
         return False
 
 
-class Throttle(CacheMixin):
-    """
-        A rate limiting class that uses the sliding window algorithm
-    """
 
-    cache = None
-
-    def __init__(self, key_func, rate, scope=None):
-        self.key_func = key_func
-        self.num_requests, self.duration = self.parse_rate(rate)
-        self.scope = scope
-        self.history = self.cache.get(self.cache_key, [])
-
-    @property
-    def cache_key(self):
-        return 'throttle:{}:{}'.format(self.scope, self.key_func())
-
-    def parse_rate(self, rate):
-        """
-        Given the request rate string, return a two tuple of:
-        <allowed number of requests>, <period of time in seconds>
-        """
-        if rate is None:
-            return (None, None)
-        num, period = rate.split('/')
-        num_requests = int(num)
-        duration = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}[period[0]]
-        return (num_requests, duration)
-
-    def allow_request(self):
-        start_of_window = time.time() - self.duration
-        while self.history and self.history[-1] < start_of_window:
-            self.history.pop()
-
-        if len(self.history) > self.num_requests:
-            return False
-
-        self.history.insert(0, time.time())
-        self.cache.set(self.cache_key, self.history, self.duration)
-        return True
