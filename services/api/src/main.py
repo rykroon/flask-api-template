@@ -13,8 +13,8 @@ def create_app():
     from auth import blueprint as auth_bp
     app.register_blueprint(auth_bp)
 
-    from app import blueprint as app_bp
-    app.register_blueprint(app_bp)
+    # from app import blueprint as app_bp
+    # app.register_blueprint(app_bp)
 
     @app.route('/health', methods=['GET'])
     def health():
