@@ -6,9 +6,9 @@ from db import redis_client
 
 class Cache:
 
-    def __init__(self, key_prefix=None, default_timeout=300):
+    def __init__(self, key_prefix=None, timeout=300):
         self.key_prefix = key_prefix
-        self.default_timeout = default_timeout
+        self.default_timeout = timeout
 
     def __contains__(self, key):
         return self._get_key(key) in redis_client
@@ -50,14 +50,20 @@ class Cache:
         return key
 
 
-def cache(seconds):
-    cache = Cache(default_timeout=seconds)
+def cache_page(seconds, key_prefix=None):
     def decorator(func):
-        @wraps
+        @wraps(func)
         def wrapper(*args, **kwargs):
-            if request.method == 'GET':
-                pass
-                #cache logic
+            if request.method in ('GET', 'HEAD'):
+                cache = Cache(timeout=seconds, key_prefix=key_prefix)
+                response = cache.get(request.url)
+                if response:
+                    return response
+                response = func(*args, **kwargs)
+                if response.status_code == 200:
+                    cache.set(request.url, response)
+                return response
+                
             return func(*args, **kwargs)
         return wrapper
     return decorator
