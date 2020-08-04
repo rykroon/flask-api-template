@@ -4,44 +4,75 @@ from auth.models import User, AccessToken
 
 
 class BaseAuthentication:
+    scheme = None
+
     def authenticate(self):
         raise NotImplementedError
 
+    def authenticate_header(self):
+        raise NotImplementedError
+
+    def validate_credentials(self, credentials):
+        pass
+
 
 class BasicAuthentication(BaseAuthentication):
+    scheme = 'Basic'
+
     def authenticate(self):
         if not request.authorization:
-            pass
+            abort(400, 'Invalid Authroization header')
 
         username = request.authorization.get('username')
         password = request.authorization.get('password')
 
+        return self.validate_credentials(username, password)
+
+    def validate_credentials(self, username, password):
         user = User.objects.get(email=username)
         if not user.verify_password(password):
             return None
-
         return user
 
 
-class TokenAuthentication(BaseAuthentication):
+class SchemeAuthentication(BaseAuthentication):
+
+    scheme = None
+
     def authenticate(self):
         authorization = request.headers.get('Authorization')
         if authorization is None:
             abort(400, "Missing Authorization header")
         
         try:
-            scheme, token = authorization.split(' ')
-        except:
+            scheme, credentials = authorization.split(' ')
+        except ValueError:
             abort(400, "Invalid Authorization header")
         
-        if scheme != 'Bearer':
+        if scheme != self.scheme:
             abort(400, "Invalid authentication scheme")
 
-        access_token = AccessToken.from_cache(token)
-        if access_token is None:
+        return self.validate_credentials(credentials)
+
+    
+    def validate_credentials(self, credentials):
+        raise NotImplementedError
+
+
+class BearerAuthentication(SchemeAuthentication):
+    scheme = 'Bearer'
+
+
+class TokenAuthentication(BearerAuthentication):
+    token_class = None
+
+    def validate_credentials(self, token):
+        token_object = self.token_class.from_cache(token)
+        if token_object is None:
             return None
 
-        return access_token.get_user()
+        return token_object.get_user()
+
 
 
 def auth(auth_class):
