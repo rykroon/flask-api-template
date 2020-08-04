@@ -4,19 +4,39 @@ from auth.models import User, AccessToken
 
 
 class BaseAuthentication:
-    scheme = None
-
     def authenticate(self):
         raise NotImplementedError
 
     def authenticate_header(self):
         raise NotImplementedError
 
+
+class SchemeAuthentication(BaseAuthentication):
+    """
+        Authentication using the Authorization Header
+    """
+    scheme = None
+
+    def authenticate(self):
+        authorization = request.headers.get('Authorization')
+        if authorization is None:
+            abort(400, "Missing Authorization header")
+        
+        try:
+            scheme, credentials = authorization.split(' ')
+        except ValueError:
+            abort(400, "Invalid Authorization header")
+        
+        if scheme != self.scheme:
+            abort(400, "Invalid authentication scheme")
+
+        return self.validate_credentials(credentials)
+    
     def validate_credentials(self, credentials):
-        pass
+        raise NotImplementedError
 
 
-class BasicAuthentication(BaseAuthentication):
+class BasicAuthentication(SchemeAuthentication):
     scheme = 'Basic'
 
     def authenticate(self):
@@ -35,30 +55,6 @@ class BasicAuthentication(BaseAuthentication):
         return user
 
 
-class SchemeAuthentication(BaseAuthentication):
-
-    scheme = None
-
-    def authenticate(self):
-        authorization = request.headers.get('Authorization')
-        if authorization is None:
-            abort(400, "Missing Authorization header")
-        
-        try:
-            scheme, credentials = authorization.split(' ')
-        except ValueError:
-            abort(400, "Invalid Authorization header")
-        
-        if scheme != self.scheme:
-            abort(400, "Invalid authentication scheme")
-
-        return self.validate_credentials(credentials)
-
-    
-    def validate_credentials(self, credentials):
-        raise NotImplementedError
-
-
 class BearerAuthentication(SchemeAuthentication):
     scheme = 'Bearer'
 
@@ -72,7 +68,6 @@ class TokenAuthentication(BearerAuthentication):
             return None
 
         return token_object.get_user()
-
 
 
 def auth(auth_class):
