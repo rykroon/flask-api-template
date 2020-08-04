@@ -20,6 +20,9 @@ class BaseThrottle:
     def allow_request(self):
         raise NotImplementedError
 
+    def get_response_headers(self):
+        return {}
+
     def _parse_rate(self, rate):
         """
         Given the request rate string, return a two tuple of:
@@ -48,6 +51,13 @@ class Throttle(BaseThrottle):
         self.history.insert(0, time.time())
         self.cache.set(self.key_func(), self.history, timeout=self.duration)
         return True
+
+    def get_response_headers(self):
+        return {
+            'X-RateLimit-Limit': self.num_requests,
+            'X-RateLimit-Remaining': self.num_requests - len(self.history) + 1,
+            'X-RateLimit-Reset': self.duration - (time.time() - self.history[0])
+        }
 
 
 def get_remote_addr():
