@@ -11,10 +11,10 @@ class Cache:
         self.default_timeout = timeout
 
     def __contains__(self, key):
-        return self._get_key(key) in redis_client
+        return self._prepend_key_prefix(key) in redis_client
 
     def get(self, key, default=None):
-        value = redis_client.get(self._get_key(key))
+        value = redis_client.get(self._prepend_key_prefix(key))
         if value is None:
             return default
         return self._load_object(value)
@@ -22,15 +22,15 @@ class Cache:
     def set(self, key, value, timeout=None):
         timeout = timeout or self.default_timeout
         value = self._dump_object(value)
-        return redis_client.set(self._get_key(key), value, ex=timeout)
+        return redis_client.set(self._prepend_key_prefix(key), value, ex=timeout)
 
     def add(self, key, value, timeout=None):
         timeout = timeout or self.default_timeout
         value = self._dump_object(value)
-        return redis_client.set(self._get_key(key), value, ex=timeout, nx=True)
+        return redis_client.set(self._prepend_key_prefix(key), value, ex=timeout, nx=True)
 
     def delete(self, key):
-        return redis_client.delete(self._get_key(key)) == 1
+        return redis_client.delete(self._prepend_key_prefix(key)) == 1
 
     def _dump_object(self, value):
         return pickle.dumps(value)
@@ -44,7 +44,7 @@ class Cache:
         except pickle.UnpicklingError:
             return value
 
-    def _get_key(self, key):
+    def _prepend_key_prefix(self, key):
         if self.key_prefix:
             return '{}:{}'.format(self.key_prefix, key)
         return key
