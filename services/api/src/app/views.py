@@ -1,4 +1,4 @@
-from core.views import DocumentView
+from core.views import ModelView
 
 
 

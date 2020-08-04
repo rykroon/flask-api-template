@@ -2,7 +2,7 @@ from datetime import datetime
 from mongoengine import Document, DateTimeField
 
 
-class BaseDocument(Document):
+class BaseModel(Document):
     date_created = DateTimeField(required=True)
     date_updated = DateTimeField(required=True)
 

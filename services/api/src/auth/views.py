@@ -2,14 +2,14 @@ from datetime import datetime, timedelta
 from flask import abort, current_app, g, jsonify, request
 from flask.views import MethodView
 
-from auth.decorators import auth, user_throttle, anon_throttle
+from auth.decorators import auth
 from auth.models import AccessToken, AuthorizationCode, Client, RefreshToken, User
-from core.views import DocumentView
+from core.views import ModelView
 
 
-class ResourceView(DocumentView):
+class ResourceView(ModelView):
     """
-        A DocumentView more focused on a 'Resource'
+        A ModelView more focused on a 'Resource'
         has additional auth related functionality
     """
 
@@ -50,9 +50,9 @@ class ResourceView(DocumentView):
     def as_view(cls, name, use_auth=True, *args, **kwargs):
         view = super().as_view(name, *args, **kwargs)
         if use_auth:
-            return auth(user_throttle(view))
+            return auth(view)
         else:
-            return anon_throttle(view)
+            return view
 
 
 class OAuthView(MethodView):
@@ -286,7 +286,7 @@ class UserInfoView(OAuthView):
         return jsonify(user.info())
 
 
-class UserView(DocumentView):
+class UserView(ModelView):
     document_class = User
 
     def _authorize(self, user):

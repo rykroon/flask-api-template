@@ -15,14 +15,14 @@ from nltk.corpus import words
 import requests
 
 # local imports
-from core.models import BaseDocument, CacheMixin
+from core.models import BaseModel
 
 
 class InvalidPassword(Exception):
     pass
 
 
-class PasswordPolicy(BaseDocument):
+class PasswordPolicy(BaseModel):
     """
         Default values based off of NIST Publication 800-63B
         https://pages.nist.gov/800-63-3/sp800-63b.html
@@ -104,7 +104,7 @@ def mksalt():
     return crypt.mksalt(crypt.METHOD_SHA256)
 
 
-class User(BaseDocument):
+class User(BaseModel):
 
     email = EmailField(required=True)
     email_verified = BooleanField(default=False)
@@ -143,7 +143,7 @@ class User(BaseDocument):
         return self.password == hashed_password
 
 
-class Resource(BaseDocument):
+class Resource(BaseModel):
     user = ReferenceField('User', reverse_delete_rule=CASCADE)
 
     meta = {
@@ -151,7 +151,7 @@ class Resource(BaseDocument):
     }
 
 
-class Client(BaseDocument):
+class Client(BaseModel):
     #from the oauth2.1 draft
     CONFIDENTIAL = 'confidential'
     PUBLIC = 'public'
@@ -191,7 +191,7 @@ class Client(BaseDocument):
         return self.type == self.__class__.PUBLIC
 
 
-class SecretMixin(CacheMixin):
+class SecretMixin():
     ttl = None
     nbytes = None #
 
