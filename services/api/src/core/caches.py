@@ -50,17 +50,25 @@ class Cache:
         return key
 
 
+"""
+    Article on on the concept of "Cacheable"
+    https://developer.mozilla.org/en-US/docs/Glossary/Cacheable
+"""
+
+CACHEABLE_METHODS = ('GET', 'HEAD')
+CACHEABLE_STATUS_CODES = (200, 203, 204, 206, 300, 301, 404, 405, 410, 414, 501)
+
 def cache_page(seconds, key_prefix=None):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            if request.method in ('GET', 'HEAD'):
+            if request.method in CACHEABLE_METHODS:
                 cache = Cache(timeout=seconds, key_prefix=key_prefix)
                 response = cache.get(request.url)
                 if response:
                     return response
                 response = func(*args, **kwargs)
-                if response.status_code == 200:
+                if response.status_code in CACHEABLE_STATUS_CODES:
                     cache.set(request.url, response)
                 return response
                 
