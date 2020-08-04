@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import g, Flask
 from core.json_util import JSONEncoder
 
 
@@ -15,6 +15,10 @@ def create_app():
 
     # from app import blueprint as app_bp
     # app.register_blueprint(app_bp)
+
+    @app.before_request
+    def before_request():
+        g.user = None
 
     @app.route('/health', methods=['GET'])
     def health():
