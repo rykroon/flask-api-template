@@ -144,7 +144,7 @@ class User(BaseModel):
 
 
 class Resource(BaseModel):
-    user = ReferenceField('User', reverse_delete_rule=CASCADE)
+    owner = ReferenceField('User', reverse_delete_rule=CASCADE)
 
     meta = {
         'abstract': True
