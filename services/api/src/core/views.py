@@ -3,6 +3,82 @@ from flask import abort, current_app, jsonify, request
 from flask.views import MethodView
 
 
+
+class APIView(MethodView):
+    authentication_classes = ()
+    permissions_classes = ()
+    throttle_classes = ()
+
+    def dispatch_request(self, *args, **kwargs):
+        self.intial(*args, **kwargs)
+
+    def check_object_permissions(self, obj):
+        """
+        Check if the request should be permitted for a given object.
+        Raises an appropriate exception if the request is not permitted.
+        """
+        for permission in self.get_permissions():
+            if not permission.has_object_permission(request, self, obj):
+                return False
+                # self.permission_denied(
+                #     request, message=getattr(permission, 'message', None)
+                # )
+
+    def check_permissions(self, request):
+        """
+        Check if the request should be permitted.
+        Raises an appropriate exception if the request is not permitted.
+        """
+        for permission in self.get_permissions():
+            if not permission.has_permission(request, self):
+                return False
+                # self.permission_denied(
+                #     request, message=getattr(permission, 'message', None)
+                # )
+
+    def check_throttles(self, request):
+        """
+        Check if request should be throttled.
+        Raises an appropriate exception if the request is throttled.
+        """
+        for throttle in self.get_throttles():
+            if not throttle.allow_request(request, self):
+                return False
+                # self.throttled(request, throttle.wait())
+
+
+    def get_authenticators(self):
+        """
+        Instantiates and returns the list of authenticators that this view can use.
+        """
+        return [auth() for auth in self.authentication_classes]
+
+    def get_permissions(self):
+        """
+        Instantiates and returns the list of permissions that this view requires.
+        """
+        return [permission() for permission in self.permission_classes]
+
+    def get_throttles(self):
+        """
+        Instantiates and returns the list of throttles that this view uses.
+        """
+        return [throttle() for throttle in self.throttle_classes]
+
+    def perform_authentication(self):
+        pass
+
+    def check_permissions(self):
+        pass
+
+    def check_throttles(self):
+        pass
+
+    def intial(self, *args, **kwargs):
+        pass
+
+
+
 class ModelView(MethodView):
     model_class = None
 
