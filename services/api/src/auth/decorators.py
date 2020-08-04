@@ -6,7 +6,7 @@ import pickle
 from flask import abort, g, request
 
 from db import redis_client
-from auth.models import AccessToken, RefreshToken, Client, User, Throttle
+from auth.models import AccessToken, RefreshToken, Client, User
 
 
 def auth(func):
@@ -39,44 +39,3 @@ def auth(func):
 
         return func(*args, **kwargs)
     return wrapper
-
-
-def throttle(identifier_type, max_requests, sliding_window):
-    identifier_type = identifier_type.upper()
-    if identifier_type not in ('USER', 'ANON'):
-        raise ValueError("Invalid identifier type")
-
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            if identifier_type == 'USER':
-                identifier = g.access_token.user_id
-
-            elif identifier_type == 'ANON':
-                identifier = request.headers.get('X-Forwarded-For')
-                if not identifier:
-                    identifier = request.remote_addr
-
-            # !! use the appropriate throttle class  !!
-            key = '{}:{}'.format(request.path, identifier)
-            throttle = Throttle.from_cache(key)
-            if throttle is None:
-                throttle = Throttle()
-
-            throttle.slide_window()
-            throttle.increment()
-            if throttle.exceeded_max_requests():
-                abort(429)
-
-            throttle.to_redis()
-
-            return func(*args, **kwargs)
-        return wrapper
-    return decorator
-
-
-max_requests = int(os.getenv('RATE_LIMIT_MAX_REQUESTS'))
-sliding_window = int(os.getenv('RATE_LIMIT_SLIDING_WINDOW'))
-
-user_throttle = throttle('USER', max_requests, sliding_window)
-anon_throttle = throttle('ANON', max_requests, sliding_window)
