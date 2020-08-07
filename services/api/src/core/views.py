@@ -6,11 +6,20 @@ from flask.views import MethodView
 
 class APIView(MethodView):
     authentication_classes = ()
-    permissions_classes = ()
+    permission_classes = ()
     throttle_classes = ()
 
     def dispatch_request(self, *args, **kwargs):
-        self.intial(*args, **kwargs)
+        try:
+            self.initial(*args, **kwargs)
+            response = super().dispatch_request(*args, **kwargs)
+        except Exception as exc:
+            pass
+            #response = self.handle_exception(exc)
+
+        self.response = response #self.finalize_response(response)
+        return self.response
+
 
     def check_object_permissions(self, obj):
         """
@@ -24,7 +33,7 @@ class APIView(MethodView):
                 #     request, message=getattr(permission, 'message', None)
                 # )
 
-    def check_permissions(self, request):
+    def check_permissions(self):
         """
         Check if the request should be permitted.
         Raises an appropriate exception if the request is not permitted.
@@ -36,7 +45,7 @@ class APIView(MethodView):
                 #     request, message=getattr(permission, 'message', None)
                 # )
 
-    def check_throttles(self, request):
+    def check_throttles(self):
         """
         Check if request should be throttled.
         Raises an appropriate exception if the request is throttled.
@@ -46,6 +55,11 @@ class APIView(MethodView):
                 return False
                 # self.throttled(request, throttle.wait())
 
+    def initial(self, *args, **kwargs):
+        # Ensure that the incoming request is permitted
+        self.perform_authentication()
+        self.check_permissions()
+        self.check_throttles()
 
     def get_authenticators(self):
         """
@@ -66,17 +80,14 @@ class APIView(MethodView):
         return [throttle() for throttle in self.throttle_classes]
 
     def perform_authentication(self):
-        pass
+        self.user = None
+        self.auth = None
 
-    def check_permissions(self):
-        pass
-
-    def check_throttles(self):
-        pass
-
-    def intial(self, *args, **kwargs):
-        pass
-
+        for authenticator in self.get_authenticators():
+            user_auth_tuple = authenticator.authenticate()
+            if user_auth_tuple is not None:
+                self.user, self.auth = user_auth_tuple
+                return
 
 
 class ModelView(MethodView):
