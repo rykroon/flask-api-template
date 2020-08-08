@@ -1,5 +1,6 @@
 from flask import g, Flask
 from core.json_util import JSONEncoder
+from db import get_redis_client
 
 
 def create_app():
@@ -18,7 +19,7 @@ def create_app():
 
     @app.before_request
     def before_request():
-        g.user = None
+        g.redis_client = get_redis_client()
 
     @app.route('/health', methods=['GET'])
     def health():
