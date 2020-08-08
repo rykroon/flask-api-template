@@ -1,14 +1,27 @@
+from base64 import b64decode
 from functools import wraps
 from flask import abort, g, request
 from auth.models import User, AccessToken
 
 
 class BaseAuthentication:
-    def authenticate(self):
-        raise NotImplementedError
+    """
+    All authentication classes should extend BaseAuthentication.
+    """
 
-    def authenticate_header(self):
-        raise NotImplementedError
+    def authenticate(self, request):
+        """
+        Authenticate the request and return a two-tuple of (user, token).
+        """
+        raise NotImplementedError(".authenticate() must be overridden.")
+
+    def authenticate_header(self, request):
+        """
+        Return a string to be used as the value of the `WWW-Authenticate`
+        header in a `401 Unauthenticated` response, or `None` if the
+        authentication scheme should return `403 Permission Denied` responses.
+        """
+        pass
 
 
 class SchemeAuthentication(BaseAuthentication):
@@ -16,6 +29,7 @@ class SchemeAuthentication(BaseAuthentication):
         Authentication using the Authorization Header
     """
     scheme = None
+    realm = 'api'
 
     def authenticate(self):
         authorization = request.headers.get('Authorization')
@@ -23,36 +37,40 @@ class SchemeAuthentication(BaseAuthentication):
             abort(400, "Missing Authorization header")
         
         try:
-            scheme, credentials = authorization.split(' ')
+            scheme, credentials = authorization.split()
         except ValueError:
             abort(400, "Invalid Authorization header")
         
         if scheme != self.scheme:
             abort(400, "Invalid authentication scheme")
 
-        return self.validate_credentials(credentials)
+        return self.authenticate_credentials(credentials)
     
     def validate_credentials(self, credentials):
         raise NotImplementedError
 
+    def authenticate_header(self, request):
+        return '{} realm="{}"'.format(self.scheme, self.realm)
 
-class BasicAuthentication(SchemeAuthentication):
+
+class BasicAuthentication(BaseAuthentication):
     scheme = 'Basic'
 
-    def authenticate(self):
-        if not request.authorization:
-            abort(400, 'Invalid Authroization header')
+    def authenticate_credentials(self, credentials):
+        decoded_credentials = b64decode(credentials).decode()
+        try:
+            username, password = decoded_credentials.split(':')
+        except ValueError:
+            abort(400)
 
-        username = request.authorization.get('username')
-        password = request.authorization.get('password')
+        user = User.objects.filter(email=username).first()
+        if user is None:
+            abort(401, "invalid username or password")
 
-        return self.validate_credentials(username, password)
-
-    def validate_credentials(self, username, password):
-        user = User.objects.get(email=username)
         if not user.verify_password(password):
-            return None
-        return user
+            abort(401, "invalid username or password")
+
+        return user, None
 
 
 class BearerAuthentication(SchemeAuthentication):
@@ -62,12 +80,12 @@ class BearerAuthentication(SchemeAuthentication):
 class TokenAuthentication(BearerAuthentication):
     token_class = None
 
-    def validate_credentials(self, token):
-        token_object = self.token_class.from_cache(token)
-        if token_object is None:
+    def authenticate_credentials(self, credentials):
+        token = self.token_class.from_cache(credentials)
+        if token is None:
             return None
 
-        return token_object.get_user()
+        return token.get_user(), token
 
 
 def auth(auth_class):
