@@ -14,7 +14,8 @@ class APIView(MethodView):
             self.initial(*args, **kwargs)
             response = super().dispatch_request(*args, **kwargs)
         except Exception as exc:
-            pass
+            current_app.logger.info(type(exc))
+            response = jsonify(error=str(exc))
             #response = self.handle_exception(exc)
 
         self.response = response #self.finalize_response(response)
