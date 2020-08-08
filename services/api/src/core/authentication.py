@@ -9,13 +9,13 @@ class BaseAuthentication:
     All authentication classes should extend BaseAuthentication.
     """
 
-    def authenticate(self, request):
+    def authenticate(self):
         """
         Authenticate the request and return a two-tuple of (user, token).
         """
         raise NotImplementedError(".authenticate() must be overridden.")
 
-    def authenticate_header(self, request):
+    def authenticate_header(self):
         """
         Return a string to be used as the value of the `WWW-Authenticate`
         header in a `401 Unauthenticated` response, or `None` if the
@@ -46,14 +46,14 @@ class SchemeAuthentication(BaseAuthentication):
 
         return self.authenticate_credentials(credentials)
     
-    def validate_credentials(self, credentials):
+    def authenticate_credentials(self, credentials):
         raise NotImplementedError
 
     def authenticate_header(self, request):
         return '{} realm="{}"'.format(self.scheme, self.realm)
 
 
-class BasicAuthentication(BaseAuthentication):
+class BasicAuthentication(SchemeAuthentication):
     scheme = 'Basic'
 
     def authenticate_credentials(self, credentials):
