@@ -1,7 +1,8 @@
 from base64 import b64decode
 from functools import wraps
-from flask import abort, g, request
+from flask import abort, current_app, g, request
 from auth.models import User, AccessToken
+from core import exceptions
 
 
 class BaseAuthentication:
@@ -32,19 +33,19 @@ class SchemeAuthentication(BaseAuthentication):
     realm = 'api'
 
     def authenticate(self):
-        authorization = request.headers.get('Authorization')
-        if authorization is None:
-            abort(400, "Missing Authorization header")
-        
-        try:
-            scheme, credentials = authorization.split()
-        except ValueError:
-            abort(400, "Invalid Authorization header")
-        
-        if scheme != self.scheme:
-            abort(400, "Invalid authentication scheme")
+        auth = request.headers.get('Authorization', '').split()
+        if not auth or auth[0].lower() != self.scheme:
+            return None
 
-        return self.authenticate_credentials(credentials)
+        if len(auth) == 1:
+            msg = 'Invalid {} header. No credentials provided.'.format(self.scheme)
+            raise exceptions.AuthenticationFailed(msg)
+
+        elif len(auth) > 2:
+            msg = 'Invalid {} header. Credentials string should not contain spaces.'.format(self.scheme)
+            raise exceptions.AuthenticationFailed(msg)
+
+        return self.authenticate_credentials(auth[1])
     
     def authenticate_credentials(self, credentials):
         raise NotImplementedError
@@ -54,27 +55,30 @@ class SchemeAuthentication(BaseAuthentication):
 
 
 class BasicAuthentication(SchemeAuthentication):
-    scheme = 'Basic'
+    scheme = 'basic'
 
     def authenticate_credentials(self, credentials):
-        decoded_credentials = b64decode(credentials).decode()
         try:
-            username, password = decoded_credentials.split(':')
-        except ValueError:
-            abort(400)
+            decoded_credentials = b64decode(credentials).decode()
+            credential_parts = decoded_credentials.partition(':')
+        except:
+            msg = 'Invalid basic header. Credentials not correctly base64 encoded.'
+            raise exceptions.AuthenticationFailed(msg)
+
+        username, password = credential_parts[0], credential_parts[2]
 
         user = User.objects.filter(email=username).first()
-        if user is None:
-            abort(401, "invalid username or password")
+        if user is None or not user.verify_password(password):
+            raise exceptions.AuthenticationFailed('Invalid username/password.')
 
-        if not user.verify_password(password):
-            abort(401, "invalid username or password")
+        if not user.is_active():
+            raise exceptions.AuthenticationFailed('User inactive or deleted.')
 
-        return user, None
+        return (user, None)
 
 
 class BearerAuthentication(SchemeAuthentication):
-    scheme = 'Bearer'
+    scheme = 'bearer'
 
 
 class TokenAuthentication(BearerAuthentication):
