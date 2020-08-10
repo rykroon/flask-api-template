@@ -9,8 +9,8 @@ import string
 
 # third party imports
 from mongoengine import ValidationError, CASCADE
-from mongoengine.fields import BooleanField, EmailField, IntField, ListField, \
-    ReferenceField, StringField
+from mongoengine.fields import BooleanField, DateTimeField, EmailField, \
+    IntField, ListField, ReferenceField, StringField
 from nltk.corpus import words
 import requests
 
@@ -105,35 +105,42 @@ def mksalt():
 
 
 class User(BaseModel):
+    username = StringField(default='')
+    first_name = StringField(default='')
+    last_name = StringField(default='')
 
-    email = EmailField(required=True)
+    email = EmailField(null=True)
     email_verified = BooleanField(default=False)
     phone_number = StringField(null=True)
     phone_number_verified = BooleanField(default=False)
+
+    #groups
+    #permissions
+
     salt = StringField(default=mksalt)
     password = StringField(required=True)
 
-    def __init__(self, email, password, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.email = email
-        self.set_password(password)
-        #self.password = password
-        #self.failed_login_attempts = 0
-        #self.lockout_date = None 
-    
-    def set_email(self, email):
-        self.email = email
-        self.email_verified = False
+    is_staff = BooleanField(deafult=False)
+    is_active = BooleanField(default=True)
+    is_super_user = BooleanField(default=False)
 
-    def set_phone_number(self, phone_number):
-        self.phone_number = phone_number
-        self.phone_number_verified = False
+    last_login = DateTimeField()
+
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
+    def get_username(self):
+        return self.username
+
+    def get_full_name(self):
+        return '{} {}'.format(self.first_name, self.last_name)
 
     def set_password(self, password):
-        policy = PasswordPolicy.objects.filter(is_active=True).first()
-        if policy:
-            policy.validate_password(password)
-
         salted_password = "{}{}".format(password, self.salt)
         self.password = sha256(salted_password.encode()).hexdigest()
 
@@ -141,6 +148,36 @@ class User(BaseModel):
         salted_password = "{}{}".format(password, self.salt)
         hashed_password = sha256(salted_password.encode()).hexdigest()
         return self.password == hashed_password
+
+
+class AnonymousUser(User):
+    def __init__(self):
+        super().__init__()
+        self.id = None
+        self.username = ''
+        self.is_staff = False
+        self.is_super_user = False
+        self.is_active = False
+
+    @property
+    def is_authenticated(self):
+        return False
+
+    @property
+    def is_anonymous(self):
+        return True
+    
+    def delete(self):
+        raise NotImplementedError
+    
+    def save(self):
+        raise NotImplementedError
+
+    def set_password(self, password):
+        raise NotImplementedError
+
+    def check_password(self, password):
+        raise NotImplementedError
 
 
 class Resource(BaseModel):
