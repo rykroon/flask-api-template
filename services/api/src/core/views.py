@@ -1,6 +1,7 @@
 from bson.objectid import ObjectId, InvalidId
 from flask import abort, current_app, jsonify, request
 from flask.views import MethodView
+from core import exceptions
 
 
 
@@ -53,14 +54,7 @@ class APIView(MethodView):
         """
         for throttle in self.get_throttles():
             if not throttle.allow_request(request, self):
-                return False
-                # self.throttled(request, throttle.wait())
-
-    def initial(self, *args, **kwargs):
-        # Ensure that the incoming request is permitted
-        self.perform_authentication()
-        self.check_permissions()
-        self.check_throttles()
+                self.throttled(throttle.wait())
 
     def get_authenticators(self):
         """
@@ -80,6 +74,41 @@ class APIView(MethodView):
         """
         return [throttle() for throttle in self.throttle_classes]
 
+    def handle_exception(self, exc):
+        """
+        Handle any exception that occurs, by returning an appropriate response,
+        or re-raising the error.
+        """
+
+        #might go with a more "Flasky" approach and use the app.errorhandler decorator
+        pass
+        # if isinstance(exc, (exceptions.NotAuthenticated,
+        #                     exceptions.AuthenticationFailed)):
+        #     # WWW-Authenticate header for 401 responses, else coerce to 403
+        #     auth_header = self.get_authenticate_header()
+
+        #     if auth_header:
+        #         exc.auth_header = auth_header
+        #     else:
+        #         exc.status_code = status.HTTP_403_FORBIDDEN
+
+        # exception_handler = self.get_exception_handler()
+
+        # context = self.get_exception_handler_context()
+        # response = exception_handler(exc, context)
+
+        # if response is None:
+        #     self.raise_uncaught_exception(exc)
+
+        # response.exception = True
+        # return response
+
+    def initial(self, *args, **kwargs):
+        # Ensure that the incoming request is permitted
+        self.perform_authentication()
+        self.check_permissions()
+        self.check_throttles()
+
     def perform_authentication(self):
         self.user = None
         self.auth = None
@@ -89,6 +118,12 @@ class APIView(MethodView):
             if user_auth_tuple is not None:
                 self.user, self.auth = user_auth_tuple
                 return
+
+    def throttled(self, wait):
+        """
+        If request is throttled, determine what kind of exception to raise.
+        """
+        raise exceptions.Throttled(wait)
 
 
 class ModelView(MethodView):
