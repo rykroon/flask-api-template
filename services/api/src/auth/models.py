@@ -105,9 +105,9 @@ def mksalt():
 
 
 class User(BaseModel):
-    username = StringField(default='')
-    first_name = StringField(default='')
-    last_name = StringField(default='')
+    username = StringField(default='', unique=True, max_length=150)
+    first_name = StringField(default='', max_length=150)
+    last_name = StringField(default='', max_length=150)
 
     email = EmailField(null=True)
     email_verified = BooleanField(default=False)
@@ -124,7 +124,7 @@ class User(BaseModel):
     is_active = BooleanField(default=True)
     is_super_user = BooleanField(default=False)
 
-    last_login = DateTimeField()
+    last_login = DateTimeField(null=True)
 
     @property
     def is_authenticated(self):
@@ -150,14 +150,22 @@ class User(BaseModel):
         return self.password == hashed_password
 
 
-class AnonymousUser(User):
-    def __init__(self):
-        super().__init__()
-        self.id = None
-        self.username = ''
-        self.is_staff = False
-        self.is_super_user = False
-        self.is_active = False
+class AnonymousUser:
+    id = None
+    pk = None
+    username = ''
+    is_staff = False
+    is_active = False
+    is_superuser = False
+
+    def __str__(self):
+        return 'AnonymousUser'
+
+    def __eq__(self, other):
+        return isinstance(other, self.__class__)
+
+    def __hash__(self):
+        return 1  # instances always return the same hash value
 
     @property
     def is_authenticated(self):
@@ -180,8 +188,17 @@ class AnonymousUser(User):
         raise NotImplementedError
 
 
+class Permission(BaseModel):
+    pass
+
+
+class Group(BaseModel):
+    pass
+
+
 class Resource(BaseModel):
     owner = ReferenceField('User', reverse_delete_rule=CASCADE)
+    group = ReferenceField('Group', reverse_delete_rule=CASCADE)
 
     meta = {
         'abstract': True
