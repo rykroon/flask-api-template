@@ -10,6 +10,13 @@ class APIException(Exception):
     default_detail = 'A server error occurred.'
     default_code = 'error'
 
+    def __init__(self, detail=None, code=None):
+        self.detail = detail or self.default_detail
+        self.code = code or self.default_code
+
+    def __str__(self):
+        return str(self.detail)
+
 
 class AuthenticationFailed(APIException):
     status_code = status.HTTP_401_UNAUTHORIZED
@@ -35,6 +42,11 @@ class NotFound(APIException):
     default_code = 'not_found'
 
 
+class Throttled(APIException):
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    default_detail = 'Request was throttled.'
+    default_code = 'throttled'
 
-
-
+    def __init__(self, wait=None, detail=None, code=None):
+        super().__init__(detail, code)
+        self.wait = wait
