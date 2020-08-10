@@ -1,5 +1,4 @@
 from base64 import b64decode
-from functools import wraps
 from flask import abort, current_app, g, request
 from auth.models import User, AccessToken
 from core import exceptions
@@ -89,22 +88,5 @@ class TokenAuthentication(BearerAuthentication):
         if token is None:
             return None
 
-        return token.get_user(), token
+        return (token.get_user(), token)
 
-
-def auth(auth_class):
-    def decorator(func):
-        @wraps
-        def wrapper(*args, **kwargs):
-            auth = auth_class()
-            user = auth.authenticate()
-            if user is None:
-                abort(401)
-            g.user = user
-            return func(*args, **kwargs)
-        return wrapper
-    return decorator
-
-
-basic_auth = auth(BasicAuthentication)
-token_auth = auth(TokenAuthentication)
