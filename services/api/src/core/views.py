@@ -1,5 +1,5 @@
 from bson.objectid import ObjectId, InvalidId
-from flask import abort, current_app, jsonify, request
+from flask import abort, current_app, g, jsonify, request
 from flask.views import MethodView
 from core import exceptions
 
@@ -25,8 +25,8 @@ class APIView(MethodView):
 
     def check_object_permissions(self, obj):
         """
-        Check if the request should be permitted for a given object.
-        Raises an appropriate exception if the request is not permitted.
+            Check if the request should be permitted for a given object.
+            Raises an appropriate exception if the request is not permitted.
         """
         for permission in self.get_permissions():
             if not permission.has_object_permission(request, self, obj):
@@ -37,8 +37,8 @@ class APIView(MethodView):
 
     def check_permissions(self):
         """
-        Check if the request should be permitted.
-        Raises an appropriate exception if the request is not permitted.
+            Check if the request should be permitted.
+            Raises an appropriate exception if the request is not permitted.
         """
         for permission in self.get_permissions():
             if not permission.has_permission(request, self):
@@ -49,8 +49,8 @@ class APIView(MethodView):
 
     def check_throttles(self):
         """
-        Check if request should be throttled.
-        Raises an appropriate exception if the request is throttled.
+            Check if request should be throttled.
+            Raises an appropriate exception if the request is throttled.
         """
         for throttle in self.get_throttles():
             if not throttle.allow_request(request, self):
@@ -58,26 +58,26 @@ class APIView(MethodView):
 
     def get_authenticators(self):
         """
-        Instantiates and returns the list of authenticators that this view can use.
+            Instantiates and returns the list of authenticators that this view can use.
         """
         return [auth() for auth in self.authentication_classes]
 
     def get_permissions(self):
         """
-        Instantiates and returns the list of permissions that this view requires.
+            Instantiates and returns the list of permissions that this view requires.
         """
         return [permission() for permission in self.permission_classes]
 
     def get_throttles(self):
         """
-        Instantiates and returns the list of throttles that this view uses.
+            Instantiates and returns the list of throttles that this view uses.
         """
         return [throttle() for throttle in self.throttle_classes]
 
     def handle_exception(self, exc):
         """
-        Handle any exception that occurs, by returning an appropriate response,
-        or re-raising the error.
+            Handle any exception that occurs, by returning an appropriate response,
+            or re-raising the error.
         """
 
         #might go with a more "Flasky" approach and use the app.errorhandler decorator
@@ -104,20 +104,44 @@ class APIView(MethodView):
         # return response
 
     def initial(self, *args, **kwargs):
+        """
+            Runs anything that needs to occur prior to calling the method handler.
+        """
         # Ensure that the incoming request is permitted
         self.perform_authentication()
         self.check_permissions()
         self.check_throttles()
 
+    def not_authenticated(self):
+        """
+            Set authenticator, user & authtoken representing an unauthenticated request.
+            Defaults are None, AnonymousUser & None.
+        """
+        g.user = None
+        g.auth = None
+        g.authenticator = None
+
     def perform_authentication(self):
-        self.user = None
-        self.auth = None
+        """
+            Attempt to authenticate the request using each authentication instance
+            in turn.
+        """
+        g.user = None
+        g.auth = None
 
         for authenticator in self.get_authenticators():
-            user_auth_tuple = authenticator.authenticate()
+            try:
+                user_auth_tuple = authenticator.authenticate(self)
+            except exceptions.APIException:
+                self.not_authenticated()
+                raise
+
             if user_auth_tuple is not None:
-                self.user, self.auth = user_auth_tuple
+                g.authenticator = authenticator
+                g.user, g.auth = user_auth_tuple
                 return
+
+        self.not_authenticated()
 
     def throttled(self, wait):
         """
