@@ -74,35 +74,6 @@ class APIView(MethodView):
         """
         return [throttle() for throttle in self.throttle_classes]
 
-    def handle_exception(self, exc):
-        """
-            Handle any exception that occurs, by returning an appropriate response,
-            or re-raising the error.
-        """
-
-        #might go with a more "Flasky" approach and use the app.errorhandler decorator
-        pass
-        # if isinstance(exc, (exceptions.NotAuthenticated,
-        #                     exceptions.AuthenticationFailed)):
-        #     # WWW-Authenticate header for 401 responses, else coerce to 403
-        #     auth_header = self.get_authenticate_header()
-
-        #     if auth_header:
-        #         exc.auth_header = auth_header
-        #     else:
-        #         exc.status_code = status.HTTP_403_FORBIDDEN
-
-        # exception_handler = self.get_exception_handler()
-
-        # context = self.get_exception_handler_context()
-        # response = exception_handler(exc, context)
-
-        # if response is None:
-        #     self.raise_uncaught_exception(exc)
-
-        # response.exception = True
-        # return response
-
     def initial(self, *args, **kwargs):
         """
             Runs anything that needs to occur prior to calling the method handler.
@@ -145,64 +116,16 @@ class APIView(MethodView):
 
     def throttled(self, wait):
         """
-        If request is throttled, determine what kind of exception to raise.
+            If request is throttled, determine what kind of exception to raise.
         """
         raise exceptions.Throttled(wait)
 
 
-class ModelView(MethodView):
-    model_class = None
-
-    def dispatch_request(self, *args, **kwargs):
-        id = kwargs.pop('id', None)
-        if id is not None:
-            document = self.retrieve_object(id)
-            if document is None:
-                abort(404)
-            return super().dispatch_request(document, *args, **kwargs)
-
-        return super().dispatch_request(*args, **kwargs)
-
-    def get(self, document=None):
-        if document is not None:
-            return jsonify(document.to_dict())
-
-        qs = self.get_queryset()
-        documents = qs.as_pymongo()
-        return jsonify(documents)
-
-    def post(self):
-        document = self.create_object()
-        return jsonify(document.to_dict()), 201
-
-    def put(self, document):
-        document = self.update_object(document)
-        return jsonify(document.to_dict())
-
-    def delete(self, document):
-        self.delete_object(document)
-        return "", 204
-
+class GenericAPIView(APIView):
+    
     def get_queryset(self):
-        return self.__class__.model_class.objects.all()
+        pass
 
-    def create_object(self):
-        data = request.get_json()
-        document = self.__class__.model_class(**data)
-        document.save()
-        return document
+    def get_object(self):
+        pass
 
-    def retrieve_object(self, id):
-        return self.__class__.model_class.objects.get(pk=id)
-
-    def update_object(self, document):
-        data = request.get_json()
-        for key, val in data.items():
-            if key in self.__class__.model_class._fields:
-                setattr(document, key, val)
-        document.save()
-        return document
-
-    def delete_object(self, document):
-        document.delete()
-        return document
