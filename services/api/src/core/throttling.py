@@ -1,32 +1,55 @@
-from functools import wraps
+import os
 import time
 from flask import abort, g, request
 from caches import Cache
 
 
 class BaseThrottle:
-    def __init__(self, key_func, rate, scope=None):
-        self.key_func = key_func
-        self.num_requests, self.duration = self._parse_rate(rate)
-        self.scope = scope
-        if self.scope:
-            key_prefix = 'throttle:{}'.format(self.scope)
-        else:
-            key_prefix = 'throttle'
+    """
+        Rate throttling of requests.
+    """
 
-        self.cache = Cache(key_prefix=key_prefix, timeout=self.duration)
-        self.history = self.cache.get(self.key_func(), [])
-
-    def allow_request(self):
-        raise NotImplementedError
-
-    def get_response_headers(self):
-        return {}
-
-    def _parse_rate(self, rate):
+    def allow_request(self, view):
         """
-        Given the request rate string, return a two tuple of:
-        <allowed number of requests>, <period of time in seconds>
+            Return `True` if the request should be allowed, `False` otherwise.
+        """
+        raise NotImplementedError('.allow_request() must be overridden')
+
+    def wait(self):
+        """
+            Optionally, return a recommended number of seconds to wait before
+            the next request.
+        """
+        return None
+
+
+class Throttle(BaseThrottle):
+
+    cache = Cache(key_prefix='throttle')
+    ident_func = lambda: None
+    rate = os.getenv('THROTTLE_RATE')
+    scope = None
+    timer = time.time
+
+    def __init__(self, rate=None, ident_func=None, scope=None):
+        if rate:
+            self.rate = rate
+
+        if ident_func:
+            self.ident_func = ident_func
+
+        if scope:
+            self.scope = scope
+
+        self.num_requests, self.duration = self.parse_rate(self.rate)
+
+    def get_cache_key(self):
+        return '{scope}_{ident}'.format(scope=self.scope, ident=self.ident_func())
+
+    def parse_rate(self, rate):
+        """
+            Given the request rate string, return a two tuple of:
+            <allowed number of requests>, <period of time in seconds>
         """
         if rate is None:
             return (None, None)
@@ -35,29 +58,46 @@ class BaseThrottle:
         duration = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}[period[0]]
         return (num_requests, duration)
 
+    def allow_request(self, view):
+        """
+            Implement the check to see if the request should be throttled.
+            On success calls `throttle_success`.
+            On failure calls `throttle_failure`.
+        """
+        if self.rate is None:
+            return True
 
-class Throttle(BaseThrottle):
-    """
-        A rate limiting class that uses the sliding window algorithm
-    """
-    def allow_request(self):
-        start_of_window = time.time() - self.duration
-        while self.history and self.history[-1] < start_of_window:
+        self.key = self.get_cache_key()
+        if self.key is None:
+            return True
+
+        self.history = self.cache.get(self.key, [])
+        self.now = self.timer()
+
+        # Drop any requests from the history which have now passed the
+        # throttle duration
+        while self.history and self.history[-1] <= self.now - self.duration:
             self.history.pop()
 
-        if len(self.history) > self.num_requests:
-            return False
+        if len(self.history) >= self.num_requests:
+            return self.throttle_failure()
+            
+        return self.throttle_success()
 
+    def throttle_success(self):
+        """
+            Inserts the current request's timestamp along with the key
+            into the cache.
+        """
         self.history.insert(0, time.time())
-        self.cache.set(self.key_func(), self.history, timeout=self.duration)
+        self.cache.set(self.key, self.history, self.duration)
         return True
 
-    def get_response_headers(self):
-        return {
-            'X-RateLimit-Limit': self.num_requests,
-            'X-RateLimit-Remaining': self.num_requests - len(self.history) + 1,
-            'X-RateLimit-Reset': self.duration - (time.time() - self.history[0])
-        }
+    def throttle_failure(self):
+        """
+            Called when a request to the API has failed due to throttling.
+        """
+        return False
 
 
 def get_remote_addr():
@@ -66,19 +106,5 @@ def get_remote_addr():
 
 
 def get_user():
-    if 'user' in g:
-        return g.user.pk
-    return None
-
-
-def throttle(key_func, rate, scope=None):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            throttle = Throttle(key_func=key_func, rate=rate, scope=scope)
-            if not throttle.allow_request():
-                abort(429)
-            return func(*args, **kwargs)
-        return wrapper
-    return decorator
+    return g.user.pk
 
