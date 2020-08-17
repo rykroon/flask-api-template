@@ -9,7 +9,7 @@ class BaseThrottle:
         Rate throttling of requests.
     """
 
-    def allow_request(self, view):
+    def allow_request(self):
         """
             Return `True` if the request should be allowed, `False` otherwise.
         """
@@ -26,17 +26,13 @@ class BaseThrottle:
 class Throttle(BaseThrottle):
 
     cache = Cache(key_prefix='throttle')
-    ident_func = lambda: None
     rate = os.getenv('THROTTLE_RATE')
     scope = None
     timer = time.time
 
-    def __init__(self, rate=None, ident_func=None, scope=None):
+    def __init__(self, rate=None, scope=None):
         if rate:
             self.rate = rate
-
-        if ident_func:
-            self.ident_func = ident_func
 
         if scope:
             self.scope = scope
@@ -44,7 +40,12 @@ class Throttle(BaseThrottle):
         self.num_requests, self.duration = self.parse_rate(self.rate)
 
     def get_cache_key(self):
-        return '{scope}_{ident}'.format(scope=self.scope, ident=self.ident_func())
+        if g.user and g.user.is_authenticated:
+            ident = g.user.pk
+        else:
+            ident = request.remote_addr
+
+        return '{scope}_{ident}'.format(scope=self.scope, ident=ident)
 
     def parse_rate(self, rate):
         """
@@ -58,7 +59,7 @@ class Throttle(BaseThrottle):
         duration = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}[period[0]]
         return (num_requests, duration)
 
-    def allow_request(self, view):
+    def allow_request(self):
         """
             Implement the check to see if the request should be throttled.
             On success calls `throttle_success`.
@@ -89,7 +90,7 @@ class Throttle(BaseThrottle):
             Inserts the current request's timestamp along with the key
             into the cache.
         """
-        self.history.insert(0, time.time())
+        self.history.insert(0, self.now)
         self.cache.set(self.key, self.history, self.duration)
         return True
 
@@ -98,6 +99,21 @@ class Throttle(BaseThrottle):
             Called when a request to the API has failed due to throttling.
         """
         return False
+
+    def wait(self):
+        """
+        Returns the recommended next request time in seconds.
+        """
+        if self.history:
+            remaining_duration = self.duration - (self.now - self.history[-1])
+        else:
+            remaining_duration = self.duration
+
+        available_requests = self.num_requests - len(self.history) + 1
+        if available_requests <= 0:
+            return None
+
+        return remaining_duration / float(available_requests)
 
 
 def get_remote_addr():
