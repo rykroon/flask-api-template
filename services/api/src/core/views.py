@@ -97,9 +97,6 @@ class APIView(MethodView):
             Attempt to authenticate the request using each authentication instance
             in turn.
         """
-        g.user = None
-        g.auth = None
-
         for authenticator in self.get_authenticators():
             try:
                 user_auth_tuple = authenticator.authenticate(self)
