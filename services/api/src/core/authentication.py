@@ -1,7 +1,8 @@
 from base64 import b64decode
 from flask import abort, current_app, g, request
-from auth.models import User, AccessToken
+from auth.models import User, AccessToken, RefreshToken
 from core import exceptions
+from core.caches import Cache
 
 
 class BaseAuthentication:
@@ -67,7 +68,7 @@ class BasicAuthentication(SchemeAuthentication):
         username, password = credential_parts[0], credential_parts[2]
 
         user = User.objects.filter(email=username).first()
-        if user is None or not user.verify_password(password):
+        if user is None or not user.check_password(password):
             raise exceptions.AuthenticationFailed('Invalid username/password.')
 
         if not user.is_active():
@@ -84,9 +85,17 @@ class TokenAuthentication(BearerAuthentication):
     token_class = None
 
     def authenticate_credentials(self, credentials):
-        token = self.token_class.from_cache(credentials)
-        if token is None:
-            return None
+        token = self.token_class.get_token(credentials)
+        if not token:
+            raise exceptions.AuthenticationFailed('Invalid token.')
 
         return (token.get_user(), token)
+
+
+class AccessTokenAuthentication(TokenAuthentication):
+    token_class = AccessToken
+
+
+class RefreshTokenAuthentication(TokenAuthentication):
+    token_class = RefreshToken
 

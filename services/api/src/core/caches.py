@@ -64,7 +64,8 @@ def cache_page(seconds, key_prefix=None):
         def wrapper(*args, **kwargs):
             if request.method in CACHEABLE_METHODS:
                 cache = Cache(timeout=seconds, key_prefix=key_prefix)
-                response = cache.get(request.url)
+                key = '{}{}{}'.format(request.url, request.headers, request.method)
+                response = cache.get(key)
                 if response:
                     return response
                 response = func(*args, **kwargs)

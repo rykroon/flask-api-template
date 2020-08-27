@@ -16,6 +16,7 @@ import requests
 
 # local imports
 from core.models import BaseModel
+from core.caches import Cache
 
 
 class InvalidPassword(Exception):
@@ -127,12 +128,12 @@ class User(BaseModel):
     last_login = DateTimeField(null=True)
 
     @property
-    def is_authenticated(self):
-        return True
-
-    @property
     def is_anonymous(self):
         return False
+
+    @property
+    def is_authenticated(self):
+        return True
 
     def get_username(self):
         return self.username
@@ -168,12 +169,12 @@ class AnonymousUser:
         return 1  # instances always return the same hash value
 
     @property
-    def is_authenticated(self):
-        return False
-
-    @property
     def is_anonymous(self):
         return True
+
+    @property
+    def is_authenticated(self):
+        return False
     
     def delete(self):
         raise NotImplementedError
@@ -245,67 +246,40 @@ class Client(BaseModel):
         return self.type == self.__class__.PUBLIC
 
 
-class SecretMixin():
-    ttl = None
-    nbytes = None #
+class Token:
 
-    def __init__(self, client, user, scope=None):
-        self.secret = secrets.token_urlsafe(self.__class__.nbytes)
-        self.client_id = client.pk
+    key_func = secrets.token_urlsafe
+    timeout = None
+
+    def __init__(self, user):
+        if not isinstance(user, User):
+            raise TypeError
+
         self.user_id = user.pk
-        self.scope = scope
-
-    @property
-    def cache_key(self):
-        return self.secret
-
-    def get_client(self):
-        return Client.objects.get(pk=self.client_id)
+        self.key = self.key_func()
 
     def get_user(self):
         return User.objects.get(pk=self.user_id)
 
+    def save(self):
+        cache = Cache(
+            key_prefix=self.__class__.__name__, 
+            timeout=self.timeout
+        )
+        cache.set(self.key, self)
+
+    @classmethod
+    def get_token(cls, token):
+        cache = Cache(key_prefix=cls.__name__)
+        return cache.get(token)
+
     def __str__(self):
-        return self.pk
-
-    def to_cache(self):
-        return super().set(ex=self.__class__.ttl)
+        return self.key
 
 
-class RefreshToken(SecretMixin):
-    ttl = 86400 # 1 day
-    nbytes = 128
+class RefreshToken(Token):
+    timeout = 86400 # 1 day
 
 
-class AccessToken(SecretMixin):
-    ttl = 3600 #1 hour
-    nbytes = 64
-
-
-class AuthorizationCode(SecretMixin):
-    ttl = 60 #1 minute
-    nbytes = 32
-
-    S256 = 'S256'
-    PLAIN = 'plain'
-    CODE_CHALLENGE_METHODS = (S256, PLAIN)
-
-    def __init__(self, client, user, scope=None):
-        super().__init__(client, user, scope)
-        self.code_challenge = None
-        self.code_challenge_method = None
-
-    def verify_code_challenge(self, code_verifier):
-        if self.code_challenge:
-            if self.code_challenge_method == self.S256:
-                hashed = sha256(code_verifier.encode('ascii')).digest()
-                encoded = urlsafe_b64encode(hashed).decode('ascii')
-                return self.code_challenge == encoded
-
-            elif self.code_challenge_method == self.PLAIN:
-                return self.code_challenge == code_verifier
-
-        return False
-
-
-
+class AccessToken(Token):
+    timeout = 3600 #1 hour
