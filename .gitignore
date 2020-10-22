@@ -3,4 +3,5 @@
 __pycache__
 env
 redis.conf
+docker-compose.local.yaml
 
