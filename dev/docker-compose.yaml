@@ -1,19 +1,21 @@
 version: '3'
 services:
   api_svc:
-    build: ./services/api
+    build: 
+      context: ../
+      dockerfile: dev/Dockerfile
+    command: gunicorn main:create_app()
     container_name: my_api
     depends_on:
       - redis_svc
     env_file:
-      - services/api/dev/env
+      - env
     image: my_api_img
     networks:
       - my_network
   redis_svc: 
-    build: ./services/redis
     container_name: my_redis
-    image: my_redis_img
+    image: redis
     networks:        
       - my_network
 networks:
