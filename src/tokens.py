@@ -3,7 +3,7 @@ from datetime import datetime as dt, timedelta as td
 from functools import wraps
 import uuid
 
-from flask import request
+from flask import g, request
 import jwt
 from werkzeug.exceptions import BadRequest, Unauthorized
 
@@ -18,16 +18,15 @@ def jwt_required(func):
         if not authorization:
             raise BadRequest("Missing or invalid Authorization header.")
 
-        scheme, credentials = authorization.split(' ')
+        scheme, sep, credentials = authorization.partition(' ')
         if scheme.lower() != 'bearer':
             raise BadRequest("Missing or invalid authentication scheme.")
 
         try:
-            payload = jwt.decode(credentials, key=jwt_secret_key)
+            g.jwt_payload = jwt.decode(credentials, key=jwt_secret_key)
         except Exception as e:
             raise Unauthorized(str(e))
 
-        sub = payload.get('sub')
         return func(*args, **kwargs)
 
     return wrapper
