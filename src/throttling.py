@@ -25,15 +25,15 @@ class Throttle:
         self.cache = Cache(key_prefix='throttle', timeout=self.duration)
 
     def get_cache_key(self):
-        if 'jwt_payload' in g:
-            ident = g.jwt_payload.get('sub')
+        if 'user' in g:
+            ident = g.user
         else:
             ident = request.remote_addr
 
         return '{}:{}'.format(self.scope, ident)
 
     def parse_rate(self, rate):
-        num, period = rate.split('/')
+        num, _, period = rate.partition('/')
         num_requests = int(num)
         duration = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}[period[0]]
         return (num_requests, duration)
