@@ -22,12 +22,7 @@ class Throttle:
     def __init__(self, scope, rate):
         self.scope = scope
         self.num_of_requests, self.duration = self.parse_rate(rate)
-
-    def parse_rate(self, rate):
-        num_of_requests, period = rate.partition('/')
-        num_of_requests = int(num_of_requests)
-        duration = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}[period[0]]
-        return (num_of_requests, duration)
+        self.cache = Cache(key_prefix='throttle', timeout=self.duration)
 
     def get_cache_key(self):
         if 'jwt_payload' in g:
@@ -37,19 +32,42 @@ class Throttle:
 
         return '{}:{}'.format(self.scope, ident)
 
+    def parse_rate(self, rate):
+        num, period = rate.split('/')
+        num_requests = int(num)
+        duration = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}[period[0]]
+        return (num_requests, duration)
+
     def allow_request(self):
-        cache = Cache(key_prefix='throttle', timeout=self.duration)
-        key = self.get_cache_key()
-        history = cache.get(key, [])
-        now = time.time()
+        self.key = self.get_cache_key()
+        self.history = self.cache.get(self.key, [])
+        self.now = time.time()
 
-        while history and history[-1] <= now - self.duration:
-            history.pop()
+        while self.history and self.history[-1] <= self.now - self.duration:
+            self.history.pop()
 
-        if len(history) >= self.num_of_requests:
-            return False
+        if len(self.history) >= self.num_of_requests:
+            return self.throttle_failure()
 
-        history.insert(0, now)
-        cache.set(key, history, self.duration)
+        return self.throttle_success()
+
+    def throttle_success(self):
+        self.history.insert(0, self.now)
+        self.cache.set(self.key, self.history, self.duration)
         return True
+
+    def throttle_failure(self):
+        return False
+
+    # def wait(self):
+    #     if self.history:
+    #         remaining_duration = self.duration - (self.now - self.history[-1])
+    #     else:
+    #         remaining_duration = self.duration
+
+    #     available_requests = self.num_of_requests - len(self.history) + 1
+    #     if available_requests <= 0:
+    #         return None
+
+    #     return remaining_duration / float(available_requests)
         
