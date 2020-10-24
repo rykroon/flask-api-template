@@ -10,10 +10,15 @@ def create_app():
 
     @app.errorhandler(HTTPException)
     def http_exception_handler(e):
-        return jsonify(
+        resp = jsonify(
             error=e.name,
             error_description=e.description
-        ), e.code
+        )
+
+        if hasattr('headers', e):
+            resp.headers.add(**e.headers)
+
+        return resp, e.code
 
     @app.before_request
     def before_request():
