@@ -1,52 +1,55 @@
 from functools import wraps
 import time
+from flask import g, request
+from werkzeug.exceptions import TooManyRequests
 from cache import Cache
-    
-def throttle(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        cache = Cache(key_prefix='throttle')
-        history = cache.get('', [])
+
+
+def throttle(scope, rate):  
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            throttle = Throttle(scope, rate)
+            if not throttle.allow_request():
+                raise TooManyRequests
+
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+class Throttle:
+    def __init__(self, scope, rate):
+        self.scope = scope
+        self.num_of_requests, self.duration = self.parse_rate(rate)
+
+    def parse_rate(self, rate):
+        num_of_requests, period = rate.partition('/')
+        num_of_requests = int(num_of_requests)
+        duration = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}[period[0]]
+        return (num_of_requests, duration)
+
+    def get_cache_key(self):
+        if 'jwt_payload' in g:
+            ident = g.jwt_payload.get('sub')
+        else:
+            ident = request.remote_addr
+
+        return '{}:{}'.format(self.scope, ident)
+
+    def allow_request(self):
+        cache = Cache(key_prefix='throttle', timeout=self.duration)
+        key = self.get_cache_key()
+        history = cache.get(key, [])
         now = time.time()
 
+        while history and history[-1] <= now - self.duration:
+            history.pop()
 
+        if len(history) >= self.num_of_requests:
+            return False
 
-        
-        return func(*args, **kwargs)
-    return wrapper
-
-    
-def allow_request(self):
-    """
-        Implement the check to see if the request should be throttled.
-        On success calls `throttle_success`.
-        On failure calls `throttle_failure`.
-    """
-    if self.rate is None:
+        history.insert(0, now)
+        cache.set(key, history, self.duration)
         return True
-
-    self.key = self.get_cache_key()
-    if self.key is None:
-        return True
-
-    self.history = self.cache.get(self.key, [])
-    self.now = self.timer()
-
-    # Drop any requests from the history which have now passed the
-    # throttle duration
-    while self.history and self.history[-1] <= self.now - self.duration:
-        self.history.pop()
-
-    if len(self.history) >= self.num_requests:
-        return self.throttle_failure()
         
-    return self.throttle_success()
-
-def throttle_success(self):
-    """
-        Inserts the current request's timestamp along with the key
-        into the cache.
-    """
-    self.history.insert(0, self.now)
-    self.cache.set(self.key, self.history, self.duration)
-    return True
