@@ -1,4 +1,5 @@
 from functools import wraps
+from math import ceil
 import time
 from flask import g, request
 from werkzeug.exceptions import TooManyRequests
@@ -37,21 +38,17 @@ class Throttler:
         duration = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}[period[0]]
         return (num_requests, duration)
 
-    def slide_window(self):
+    def throttle(self):
         history = self.cache.get(self.key, [])
         now = time.time()
         while history and history[-1] <= now - self.duration:
             history.pop()
-        return history
-
-    def throttle(self):
-        history = self.slide_window()
 
         if len(history) >= self.num_of_requests:
-            retry_after = self.duration - (time.time() - history[-1])
+            retry_after = ceil(self.duration - (now - history[-1]))
             raise TooManyRequests(retry_after=retry_after)
 
-        history.insert(0, time.time())
+        history.insert(0, now)
         self.cache.set(self.key, history, self.duration)
         return True
 
