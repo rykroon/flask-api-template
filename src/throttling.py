@@ -9,22 +9,21 @@ def throttle(scope, rate):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            throttle = Throttle(scope, rate)
-            if not throttle.allow_request():
-                raise TooManyRequests
-
+            throttler = Throttler(scope, rate)
+            throttler.throttle()
             return func(*args, **kwargs)
         return wrapper
     return decorator
 
 
-class Throttle:
+class Throttler:
     def __init__(self, scope, rate):
         self.scope = scope
         self.num_of_requests, self.duration = self.parse_rate(rate)
         self.cache = Cache(key_prefix='throttle', timeout=self.duration)
 
-    def get_cache_key(self):
+    @property
+    def key(self):
         if 'user' in g:
             ident = g.user
         else:
@@ -38,36 +37,22 @@ class Throttle:
         duration = {'s': 1, 'm': 60, 'h': 3600, 'd': 86400}[period[0]]
         return (num_requests, duration)
 
-    def allow_request(self):
-        self.key = self.get_cache_key()
-        self.history = self.cache.get(self.key, [])
-        self.now = time.time()
+    def slide_window(self):
+        history = self.cache.get(self.key, [])
+        now = time.time()
+        while history and history[-1] <= now - self.duration:
+            history.pop()
+        return history
 
-        while self.history and self.history[-1] <= self.now - self.duration:
-            self.history.pop()
+    def throttle(self):
+        history = self.slide_window()
 
-        if len(self.history) >= self.num_of_requests:
-            return self.throttle_failure()
+        if len(history) >= self.num_of_requests:
+            retry_after = self.duration - (time.time() - history[-1])
+            raise TooManyRequests(retry_after=retry_after)
 
-        return self.throttle_success()
-
-    def throttle_success(self):
-        self.history.insert(0, self.now)
-        self.cache.set(self.key, self.history, self.duration)
+        history.insert(0, time.time())
+        self.cache.set(self.key, history, self.duration)
         return True
 
-    def throttle_failure(self):
-        return False
-
-    # def wait(self):
-    #     if self.history:
-    #         remaining_duration = self.duration - (self.now - self.history[-1])
-    #     else:
-    #         remaining_duration = self.duration
-
-    #     available_requests = self.num_of_requests - len(self.history) + 1
-    #     if available_requests <= 0:
-    #         return None
-
-    #     return remaining_duration / float(available_requests)
-        
+ 
