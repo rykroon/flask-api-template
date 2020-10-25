@@ -2,18 +2,15 @@ from flask import Flask, g, jsonify
 from werkzeug.exceptions import HTTPException
 from utils import JSONEncoder
 from db import get_redis_client
+from error_handlers import error_handlers
 
 
 def create_app():
     app = Flask(__name__)
     app.json_encoder = JSONEncoder
 
-    @app.errorhandler(HTTPException)
-    def http_exception_handler(e):
-        return jsonify(
-            error=e.name,
-            error_description=e.description
-        ), e.code
+    for exc, handler in error_handlers.items():
+        app.register_error_handler(exc, handler)
 
     @app.before_request
     def before_request():
