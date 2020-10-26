@@ -1,4 +1,4 @@
-from flask import Flask, g, jsonify
+from flask import Flask, current_app, g, jsonify, request
 from werkzeug.exceptions import HTTPException
 from utils import JSONEncoder
 from db import get_redis_client
@@ -18,6 +18,7 @@ def create_app():
 
     @app.route('/healthz', methods=['GET'])
     def health():
+        current_app.logger.info(request.headers)
         return "OK"
 
     return app
