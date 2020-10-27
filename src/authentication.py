@@ -56,11 +56,19 @@ class JWTAuthenticator(BaseAuthenticator):
     def validate_credentials(self, credentials):
         jwt_secret_key = os.getenv('JWT_SECRET_KEY')
         try:
+            headers = jwt.get_unverified_header(credentials)
             payload = jwt.decode(credentials, jwt_secret_key)
+            
         except Exception as e:
             current_app.logger.warning(e)
             raise Unauthorized(
                 'Invalid token.', 
+                www_authenticate=self.www_authenticate
+            )
+
+        if headers.get('typ') != 'at+jwt':
+            raise Unauthorized(
+                'Invalid Token.',
                 www_authenticate=self.www_authenticate
             )
 
