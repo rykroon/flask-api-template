@@ -8,6 +8,7 @@ from flask import current_app, g, request
 import jwt
 from werkzeug.exceptions import BadRequest, Unauthorized
 from cache import Cache
+from models.users import User
 
 
 class BaseAuthenticator:
@@ -45,9 +46,20 @@ class BasicAuthenticator(BaseAuthenticator):
         decoded_credentials = b64decode(credentials)
         username, _, password = decoded_credentials.partition(':')
 
-        #check username and password
+        user = User.objects.filter(username=username).first()
+        if not user:
+            raise Unauthorized(
+                'Invalid username or password.',
+                www_authenticate=self.www_authenticate
+            )
 
-        return (username, None)
+        if not user.check_password(password):
+            raise Unauthorized(
+                'Invalid username or password.',
+                www_authenticate=self.www_authenticate
+            )
+
+        return (user, None)
 
 
 class JWTAuthenticator(BaseAuthenticator):
@@ -58,7 +70,7 @@ class JWTAuthenticator(BaseAuthenticator):
         try:
             headers = jwt.get_unverified_header(credentials)
             payload = jwt.decode(credentials, jwt_secret_key)
-            
+
         except Exception as e:
             current_app.logger.warning(e)
             raise Unauthorized(
