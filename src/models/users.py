@@ -1,7 +1,7 @@
 import crypt
 from hashlib import sha256
 from mongoengine.fields import BooleanField, EmailField, StringField
-from .base import BaseDocument
+from models.base import BaseDocument
 
 
 def mksalt():
@@ -9,11 +9,11 @@ def mksalt():
 
 
 class User(BaseDocument):
-    username = StringField(required=True)
+    username = StringField(required=True, unique=True)
     salt = StringField(required=True, default=mksalt)
-    password = StringField()
+    password = StringField(required=True)
 
-    email_address = EmailField()
+    email_address = EmailField(required=True)
     email_address_verified = BooleanField()
 
     def set_password(self, password):
