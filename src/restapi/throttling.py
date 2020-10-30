@@ -6,11 +6,11 @@ from werkzeug.exceptions import TooManyRequests
 from cache import Cache
 
 
-def throttle(scope, rate):  
+def throttle(rate, scope='global'):  
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            throttler = Throttler(scope, rate)
+            throttler = Throttler(rate, scope)
             throttler.throttle()
             return func(*args, **kwargs)
         return wrapper
@@ -18,7 +18,7 @@ def throttle(scope, rate):
 
 
 class Throttler:
-    def __init__(self, scope, rate):
+    def __init__(self, rate, scope='global'):
         self.scope = scope
         self.num_of_requests, self.duration = self.parse_rate(rate)
         self.cache = Cache(key_prefix='throttle', timeout=self.duration)
@@ -27,6 +27,8 @@ class Throttler:
     def key(self):
         if 'user' in g:
             ident = g.user
+        elif request.access_route:
+            ident = request.access_route[0]
         else:
             ident = request.remote_addr
 
