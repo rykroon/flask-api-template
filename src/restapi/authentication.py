@@ -59,7 +59,7 @@ class BasicAuthenticator(BaseAuthenticator):
                 www_authenticate=self.www_authenticate
             )
 
-        return (user, None)
+        return user
 
 
 class JWTAuthenticator(BaseAuthenticator):
@@ -85,7 +85,13 @@ class JWTAuthenticator(BaseAuthenticator):
             )
 
         sub = payload.get('sub')
-        return (sub, credentials)
+        user = User.objects.filter(pk=sub).first()
+        if not user:
+            raise Unauthorized(
+                'Invalid user',
+                www_authenticate=self.www_authenticate
+            )
+        return user
 
 
 class HMACAuthenticator(BaseAuthenticator):    
@@ -101,11 +107,18 @@ class HMACAuthenticator(BaseAuthenticator):
         self.timestamp_threshold = os.getenv('HMAC_TIMESTAMP_THRESHOLD', 300)
 
     def validate_credentials(self, credentials):
-        username, _, signature = credentials.partition(':')
+        user_id, _, signature = credentials.partition(':')
         timestamp = float(request.headers.get(self.timestamp_header, 0))
         nonce = request.headers.get(self.nonce_header)
 
-        key = self.get_key(username)
+        user = User.objects.filter(pk=user_id).first()
+        if not user:
+            raise Unauthorized(
+                'Invalid user id.',
+                www_authenticate=self.www_authenticate
+            )
+
+        key = user.secret_key
         payload = request.query_string if request.method == 'GET' else request.data
         payload = payload.decode()
         message = '{}{}{}{}{}'.format(
@@ -126,7 +139,9 @@ class HMACAuthenticator(BaseAuthenticator):
             )
 
         self.check_timestamp(timestamp)
-        self.check_nonce(username, nonce)
+        self.check_nonce(user, nonce)
+
+        return user
 
     def check_timestamp(self, timestamp):       
         diff = time.time() - timestamp
@@ -136,9 +151,9 @@ class HMACAuthenticator(BaseAuthenticator):
                 www_authenticate=self.www_authenticate
             )
 
-    def check_nonce(self, username, nonce):
+    def check_nonce(self, user, nonce):
         cache = Cache(key_prefix='nonce', timeout=self.timestamp_threshold)
-        key = '{}:{}'.format(username, nonce)
+        key = '{}:{}'.format(user.pk, nonce)
         if key in cache:
             raise Unauthorized(
                 'Nonce used more than once.',
@@ -146,19 +161,13 @@ class HMACAuthenticator(BaseAuthenticator):
             )
         cache.set(key, '')
 
-    def get_key(self, username):
-        """
-            return the key associated with the username
-        """
-        return ''
-
 
 def decorator_factory(authenticator_class):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             authenticator = authenticator_class()
-            authenticator.authenticate()
+            g.user = authenticator.authenticate()
             return func(*args, **kwargs)
         return wrapper
     return decorator
