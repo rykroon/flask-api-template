@@ -9,7 +9,7 @@ bp = Blueprint('tokens', __name__)
 
 
 class Token(MethodView):
-    decorators = [basic_auth, throttle(scope='tokens', rate='1/s')]
+    decorators = [basic_auth, throttle(rate='1/s', scope='tokens')]
 
     def post(self):
         pass
