@@ -18,3 +18,6 @@ class Client(BaseDocument):
         super().clean()
         if self.pk is None and self.type == CONFIDENTIAL:
             self.secret = secrets.token_urlsafe()
+
+    def is_public(self):
+        return self.type == PUBLIC
