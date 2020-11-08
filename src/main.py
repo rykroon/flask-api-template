@@ -18,7 +18,6 @@ def create_app():
 
     @app.route('/healthz', methods=['GET'])
     def health():
-        current_app.logger.info(request.headers)
         return "OK"
 
     return app
