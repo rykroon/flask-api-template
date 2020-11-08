@@ -9,6 +9,7 @@ import jwt
 from werkzeug.exceptions import BadRequest, Unauthorized
 from cache import Cache
 from models.users import User
+from models.clients import Client
 
 
 class BaseAuthenticator:
@@ -107,18 +108,23 @@ class HMACAuthenticator(BaseAuthenticator):
         self.timestamp_threshold = os.getenv('HMAC_TIMESTAMP_THRESHOLD', 300)
 
     def validate_credentials(self, credentials):
-        user_id, _, signature = credentials.partition(':')
-        timestamp = float(request.headers.get(self.timestamp_header, 0))
+        client_id, _, signature = credentials.partition(':')
+        timestamp = request.headers.get(self.timestamp_header, 0)
         nonce = request.headers.get(self.nonce_header)
 
-        user = User.objects.filter(pk=user_id).first()
-        if not user:
+        client = Client.objects.filter(pk=client_id).first()
+        if not client:
             raise Unauthorized(
-                'Invalid user id.',
+                'Invalid client id.',
                 www_authenticate=self.www_authenticate
             )
 
-        key = user.secret_key
+        if client.is_public():
+            raise Unauthorized(
+                'Client not authorized to use HMAC Authentication.',
+                www_authenticate=self.www_authenticate
+            )
+
         payload = request.query_string if request.method == 'GET' else request.data
         payload = payload.decode()
         message = '{}{}{}{}{}'.format(
@@ -129,7 +135,7 @@ class HMACAuthenticator(BaseAuthenticator):
             nonce
         )
 
-        h = hmac.HMAC(key=key.encode(), msg=message.encode(), digestmod=sha256)
+        h = hmac.HMAC(key=client.secret_key.encode(), msg=message.encode(), digestmod=sha256)
         calculated_signature = h.hexdigest()
 
         if signature != calculated_signature:
@@ -138,10 +144,10 @@ class HMACAuthenticator(BaseAuthenticator):
                 www_authenticate=self.www_authenticate
             )
 
-        self.check_timestamp(timestamp)
-        self.check_nonce(user, nonce)
+        self.check_timestamp(float(timestamp))
+        self.check_nonce(client, nonce)
 
-        return user
+        return client
 
     def check_timestamp(self, timestamp):       
         diff = time.time() - timestamp
@@ -151,9 +157,9 @@ class HMACAuthenticator(BaseAuthenticator):
                 www_authenticate=self.www_authenticate
             )
 
-    def check_nonce(self, user, nonce):
+    def check_nonce(self, client, nonce):
         cache = Cache(key_prefix='nonce', timeout=self.timestamp_threshold)
-        key = '{}:{}'.format(user.pk, nonce)
+        key = '{}:{}'.format(client.pk, nonce)
         if key in cache:
             raise Unauthorized(
                 'Nonce used more than once.',
