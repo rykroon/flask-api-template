@@ -4,20 +4,35 @@ services:
     build: 
       context: ../
       dockerfile: dev/Dockerfile
-    command: gunicorn main:create_app()
+    command: gunicorn main:create_app() --bind 0.0.0.0 --reload
     container_name: my_api
     depends_on:
       - redis_svc
+      - mongo_svc
     env_file:
       - env
     image: my_api_img
     networks:
       - my_network
+    ports:
+      - "80:8000"
+    volumes:
+      - '../src:/app/host_src'
+    working_dir: /app/host_src
+  mongo_svc:
+    container_name: my_mongo
+    image: mongo
+    networks: 
+      - my_network
+    ports:
+      - "27017:27017"
   redis_svc: 
     container_name: my_redis
     image: redis
     networks:        
       - my_network
+    ports:
+      - "6379:6379"
 networks:
   my_network:
 
