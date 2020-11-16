@@ -125,12 +125,10 @@ class HMACAuthenticator(BaseAuthenticator):
                 www_authenticate=self.www_authenticate
             )
 
-        payload = request.query_string if request.method == 'GET' else request.data
-        payload = payload.decode()
         message = '{}{}{}{}{}'.format(
             request.method,
-            request.base_url,
-            payload,
+            request.full_path,
+            request.get_data().decode(),
             timestamp, 
             nonce
         )
