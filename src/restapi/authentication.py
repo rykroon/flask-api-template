@@ -100,7 +100,7 @@ class HMACAuthenticator(BaseAuthenticator):
         Example:
         Authorization: HMAC-SHA256 username:signature
     """
-    scheme = 'HMAC-SHA256'
+    scheme = 'HS256'
 
     def __init__(self):
         self.timestamp_header = os.getenv('HMAC_TIMESTAMP_HEADER', 'Timestamp')
@@ -119,7 +119,7 @@ class HMACAuthenticator(BaseAuthenticator):
                 www_authenticate=self.www_authenticate
             )
 
-        if client.is_public():
+        if client.is_public:
             raise Unauthorized(
                 'Client not authorized to use HMAC Authentication.',
                 www_authenticate=self.www_authenticate

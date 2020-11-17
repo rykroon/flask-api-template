@@ -1,23 +1,16 @@
 import secrets
-from mongoengine.fields import StringField
+from mongoengine.fields import StringField, BooleanField
 from models.base import BaseDocument
-
-
-PUBLIC = 'public'
-CONFIDENTIAL = 'confidential'
-CLIENT_TYPES = (PUBLIC, CONFIDENTIAL)
 
 
 class Client(BaseDocument):
     name = StringField(required=True)
     description = StringField()
-    type = StringField(required=True, choices=CLIENT_TYPES)
+    is_public = BooleanField()
+    is_external = BooleanField()
     secret = StringField(null=True)
 
     def clean(self):
         super().clean()
-        if self.pk is None and self.type == CONFIDENTIAL:
+        if self.pk is None and not self.is_public:
             self.secret = secrets.token_urlsafe()
-
-    def is_public(self):
-        return self.type == PUBLIC
