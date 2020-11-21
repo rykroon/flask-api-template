@@ -15,6 +15,10 @@ def validate_phone_number(phone_number):
 
 
 class User(BaseDocument):
+    meta = {
+        'collection': 'users'
+    }
+
     username = StringField(required=True, unique=True)
     salt = StringField(required=True, default=mksalt)
     password = StringField(required=True)
