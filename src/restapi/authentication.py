@@ -4,12 +4,15 @@ from functools import wraps
 from hashlib import sha256
 import hmac
 import time
+
 from flask import current_app, g, request
 import jwt
 from werkzeug.exceptions import BadRequest, Unauthorized
+
 from cache import Cache
 from models.users import User
 from models.clients import Client
+from restapi.tokens import validate_access_token
 
 
 class BaseAuthenticator:
@@ -67,24 +70,7 @@ class JWTAuthenticator(BaseAuthenticator):
     scheme = 'Bearer'
 
     def validate_credentials(self, credentials):
-        jwt_secret_key = os.getenv('JWT_SECRET_KEY')
-        try:
-            headers = jwt.get_unverified_header(credentials)
-            payload = jwt.decode(credentials, jwt_secret_key)
-
-        except Exception as e:
-            current_app.logger.warning(e)
-            raise Unauthorized(
-                'Invalid token.', 
-                www_authenticate=self.www_authenticate
-            )
-
-        if headers.get('typ') != 'at+jwt':
-            raise Unauthorized(
-                'Invalid Token.',
-                www_authenticate=self.www_authenticate
-            )
-
+        payload = validate_access_token(credentials)
         sub = payload.get('sub')
         user = User.objects.filter(pk=sub).first()
         if not user:
