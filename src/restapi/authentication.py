@@ -9,7 +9,7 @@ from flask import current_app, g, request
 import jwt
 from werkzeug.exceptions import BadRequest, Unauthorized
 
-from cache import Cache
+from utils import Cache
 from models.users import User
 from models.clients import Client
 from restapi.tokens import validate_access_token

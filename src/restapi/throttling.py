@@ -3,7 +3,7 @@ from math import ceil
 import time
 from flask import g, request
 from werkzeug.exceptions import TooManyRequests
-from cache import Cache
+from utils import Cache
 
 
 def throttle(rate, scope='global'):  

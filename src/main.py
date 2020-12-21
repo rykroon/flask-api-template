@@ -1,8 +1,6 @@
 from flask import Flask, current_app, g, jsonify, request
 from werkzeug.exceptions import HTTPException
-from utils import JSONEncoder
-from db import get_redis_client
-from error_handlers import error_handlers
+from utils import JSONEncoder, get_redis_client, error_handlers
 
 
 def create_app():
