@@ -1,0 +1,3 @@
+"""
+    View for API
+"""
