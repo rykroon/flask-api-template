@@ -11,7 +11,7 @@ from werkzeug.exceptions import BadRequest, Unauthorized
 
 from utils import Cache
 from models.users import User
-from models.clients import Client
+from models.clients import ConfidentialClient
 from restapi.tokens import validate_access_token
 
 
@@ -40,7 +40,7 @@ class BaseAuthenticator:
         return self.validate_credentials(credentials)
 
     def validate_credentials(self, credentials):
-        pass
+        raise NotImplementedError
 
 
 class BasicAuthenticator(BaseAuthenticator):
@@ -98,16 +98,10 @@ class HMACAuthenticator(BaseAuthenticator):
         timestamp = request.headers.get(self.timestamp_header, 0)
         nonce = request.headers.get(self.nonce_header)
 
-        client = Client.objects.filter(pk=client_id).first()
+        client = ConfidentialClient.objects.filter(pk=client_id).first()
         if not client:
             raise Unauthorized(
                 'Invalid client id.',
-                www_authenticate=self.www_authenticate
-            )
-
-        if client.is_public:
-            raise Unauthorized(
-                'Client not authorized to use HMAC Authentication.',
                 www_authenticate=self.www_authenticate
             )
 
