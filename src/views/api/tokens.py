@@ -2,7 +2,7 @@ from flask import Blueprint, g, jsonify, request
 from flask.views import MethodView
 
 from restapi.throttling import throttle
-from models import PublicClient, User
+from models import Client, User
 
 
 bp = Blueprint('tokens', __name__)
@@ -13,7 +13,7 @@ class Token(MethodView):
 
     def post(self):
         client_id = request.json.get('client_id')
-        client = PublicClient.objects.get(id=client_id)
+        client = Client.objects.get(id=client_id)
 
         grant_type = request.json.get('grant_type')
 

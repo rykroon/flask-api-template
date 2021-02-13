@@ -10,8 +10,7 @@ import jwt
 from werkzeug.exceptions import BadRequest, Unauthorized
 
 from utils import Cache
-from models.users import User
-from models.clients import ConfidentialClient
+from models import Client, User
 from restapi.tokens import validate_access_token
 
 
@@ -98,7 +97,7 @@ class HMACAuthenticator(BaseAuthenticator):
         timestamp = request.headers.get(self.timestamp_header, 0)
         nonce = request.headers.get(self.nonce_header)
 
-        client = ConfidentialClient.objects.filter(pk=client_id).first()
+        client = Client.objects.filter(pk=client_id).first()
         if not client:
             raise Unauthorized(
                 'Invalid client id.',
