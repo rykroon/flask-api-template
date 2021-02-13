@@ -9,14 +9,16 @@ class BaseDocument(Document):
         'abstract': True
     }
 
-    id = UUIDField(primary_key=True, default=uuid.uuid4)
-    date_created = DateTimeField(required=True, default=datetime.utcnow)
+    uuid = UUIDField(required=True, unique=True, default=uuid.uuid4)
+    date_created = DateTimeField(default=datetime.utcnow)
     date_updated = DateTimeField()
     date_deleted = DateTimeField()
 
     def clean(self):
         super().clean()
-        if self.pk is not None:
+        not_saved = self.pk is None
+        changed_fields = self._get_changed_fields()
+        if not_saved or changed_fields:
             self.date_updated = datetime.utcnow()
 
     def soft_delete(self):

@@ -1,2 +1,2 @@
-from .clients import Client, ConfidentialClient, PublicClient
+from .clients import Client
 from .users import User

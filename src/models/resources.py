@@ -1,14 +1,10 @@
-from mongoengine.fields import UUIDField
+from mongoengine.fields import ObjectIdField
 from models.base import BaseDocument
-from models import Client, User
 
 class Resource(BaseDocument):
     meta = {
         'abstract': True
     }
 
-    owner_id = UUIDField(required=True)
-
-    
-
+    client_id = ObjectIdField(required=True)
 
