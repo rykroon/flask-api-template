@@ -1,5 +1,6 @@
+from functools import wraps
 import pickle
-from flask import g
+from flask import g, request
 
 
 class Cache:
@@ -32,4 +33,22 @@ class Cache:
         if self.key_prefix:
             return '{}:{}'.format(self.key_prefix, key)
         return key
+
+
+def cache_page(key_prefix=None, timeout=None):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            if request.method == 'GET':
+                cache = Cache(key_prefix=key_prefix, timeout=timeout)
+                key = '{}:{}'.format(g.client.pk, request.full_path)
+                resp = cache.get(key)
+                if not resp:
+                    resp = func(*args, **kwargs)
+                    if resp.status_code == 200:
+                        cache.set(key, resp)
+                return resp
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
