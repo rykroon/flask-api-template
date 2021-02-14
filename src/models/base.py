@@ -11,8 +11,8 @@ class BaseDocument(Document):
 
     uuid = UUIDField(required=True, unique=True, default=uuid.uuid4)
     date_created = DateTimeField(default=datetime.utcnow)
-    date_updated = DateTimeField()
-    date_deleted = DateTimeField()
+    date_updated = DateTimeField(null=True)
+    date_deleted = DateTimeField(null=True)
 
     def clean(self):
         super().clean()

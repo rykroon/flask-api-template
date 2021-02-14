@@ -10,11 +10,11 @@ import jwt
 from werkzeug.exceptions import BadRequest, Unauthorized
 
 from utils import Cache
-from models import Client, User
+from models import Client
 from restapi.tokens import validate_access_token
 
 
-class BaseAuthenticator:
+class BaseAuthentication:
     scheme = None 
     realm = None
 
@@ -25,16 +25,16 @@ class BaseAuthenticator:
         return self.scheme
 
     def authenticate(self):
-        authorization = request.headers.get('Authorization')
-        if not authorization:
+        authorization_header = request.headers.get('Authorization')
+        if not authorization_header:
             raise BadRequest('Missing Authorization header.')
 
-        scheme, _, credentials = authorization.partition(' ')
-        if not scheme:
+        scheme, _, credentials = authorization_header.partition(' ')
+        if not credentials:
             raise BadRequest('Invalid Authorization header.')
 
         if scheme != self.scheme:
-            raise Unauthorized(www_authenticate=self.www_authenticate)
+            return None
 
         return self.validate_credentials(credentials)
 
@@ -42,45 +42,45 @@ class BaseAuthenticator:
         raise NotImplementedError
 
 
-class BasicAuthenticator(BaseAuthenticator):
+class BasicAuthenticator(BaseAuthentication):
     scheme = 'Basic'
     
     def validate_credentials(self, credentials):
         decoded_credentials = b64decode(credentials)
-        username, _, password = decoded_credentials.partition(':')
+        client_id, _, secret_key = decoded_credentials.partition(':')
 
-        user = User.objects.filter(username=username).first()
-        if not user:
+        client = Client.objects.filter(pk=client_id).first()
+        if not client:
             raise Unauthorized(
                 'Invalid username or password.',
                 www_authenticate=self.www_authenticate
             )
 
-        if not user.check_password(password):
+        if client.secret_key != secret_key:
             raise Unauthorized(
                 'Invalid username or password.',
                 www_authenticate=self.www_authenticate
             )
 
-        return user
+        return client
 
 
-class JWTAuthenticator(BaseAuthenticator):
+class JWTAuthenticator(BaseAuthentication):
     scheme = 'Bearer'
 
     def validate_credentials(self, credentials):
         payload = validate_access_token(credentials)
         sub = payload.get('sub')
-        user = User.objects.filter(pk=sub).first()
-        if not user:
+        client = Client.objects.filter(pk=sub).first()
+        if not client:
             raise Unauthorized(
                 'Invalid user',
                 www_authenticate=self.www_authenticate
             )
-        return user
+        return client
 
 
-class HMACAuthenticator(BaseAuthenticator):    
+class HMACAuthenticator(BaseAuthentication):    
     """
         Example:
         Authorization: HMAC-SHA256 username:signature
@@ -93,7 +93,8 @@ class HMACAuthenticator(BaseAuthenticator):
         self.timestamp_threshold = os.getenv('HMAC_TIMESTAMP_THRESHOLD', 300)
 
     def validate_credentials(self, credentials):
-        client_id, _, signature = credentials.partition(':')
+        decoded_credentials = b64decode(credentials)
+        client_id, _, signature = decoded_credentials.partition(':')
         timestamp = request.headers.get(self.timestamp_header, 0)
         nonce = request.headers.get(self.nonce_header)
 
@@ -104,9 +105,11 @@ class HMACAuthenticator(BaseAuthenticator):
                 www_authenticate=self.www_authenticate
             )
 
+        path = request.full_path if request.query_string else request.path
+
         message = '{}{}{}{}{}'.format(
             request.method,
-            request.full_path,
+            path,
             request.get_data().decode(),
             timestamp, 
             nonce

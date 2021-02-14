@@ -5,10 +5,9 @@ from models.base import BaseDocument
 
 class Client(BaseDocument):
     meta = {
-        'collection': 'clients',
-        
+        'collection': 'clients'  
     }
 
     name = StringField(required=True)
-    description = StringField()
+    description = StringField(default=str)
     secret_key = StringField(default=secrets.token_urlsafe)
