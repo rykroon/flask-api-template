@@ -2,7 +2,7 @@ from flask import Blueprint, g, jsonify, request
 from flask.views import MethodView
 
 from restapi.throttling import throttle
-from models import Client, User
+from models import Client
 
 
 bp = Blueprint('tokens', __name__)
@@ -27,9 +27,9 @@ class Token(MethodView):
         username = request.json.get('username')
         password = request.json.get('password')
 
-        user = User.objects.get(email_address=username)
-        if not user.check_password(password):
-            raise Exception
+        # user = User.objects.get(email_address=username)
+        # if not user.check_password(password):
+        #     raise Exception
 
         return jsonify(
             access_token='',

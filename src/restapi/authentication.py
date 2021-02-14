@@ -153,7 +153,7 @@ def decorator_factory(authenticator_class):
         @wraps(func)
         def wrapper(*args, **kwargs):
             authenticator = authenticator_class()
-            g.user = authenticator.authenticate()
+            g.client = authenticator.authenticate()
             return func(*args, **kwargs)
         return wrapper
     return decorator

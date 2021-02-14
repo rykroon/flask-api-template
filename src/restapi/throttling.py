@@ -25,8 +25,8 @@ class Throttler:
 
     @property
     def key(self):
-        if 'user' in g:
-            ident = g.user
+        if 'client' in g:
+            ident = g.client.pk
         elif request.access_route:
             ident = request.access_route[0]
         else:
