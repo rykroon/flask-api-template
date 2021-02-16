@@ -1,6 +1,7 @@
 from flask import g, request
 from flask.views import MethodView
-from werkzeug.exceptions import Forbidden
+from mongoengine.errors import InvalidQueryError, ValidationError
+from werkzeug.exceptions import BadRequest, Forbidden
 
 
 class APIView(MethodView):
@@ -9,8 +10,15 @@ class APIView(MethodView):
     permission_classes = []
 
     def dispatch_request(self):
-        self.initial()
-        super().dispatch_request()
+        try:
+            self.initial()
+            super().dispatch_request()
+
+        except ValidationError as e:
+            raise BadRequest(e.to_dict())
+
+        except InvalidQueryError as e:
+            raise BadRequest(str(e))
 
     def initial(self):
         self.perform_authnetication()

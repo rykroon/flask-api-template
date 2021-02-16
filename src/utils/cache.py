@@ -48,11 +48,11 @@ class Cache:
         return key
 
 
-def cache_page(key_prefix=None, timeout=None):
+def cache_page(timeout, key_prefix=None):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            if request.method == 'GET':
+            if request.method in ('GET', 'HEAD'):
                 cache = Cache(key_prefix=key_prefix, timeout=timeout)
                 key = '{}:{}'.format(g.client.pk, request.full_path)
                 resp = cache.get(key)
