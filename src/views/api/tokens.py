@@ -1,7 +1,7 @@
 from flask import Blueprint, g, jsonify, request
 from flask.views import MethodView
 
-from restapi.throttling import throttle
+from rest.throttling import throttle
 from models import Client
 
 

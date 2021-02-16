@@ -11,7 +11,7 @@ from werkzeug.exceptions import BadRequest, Unauthorized
 
 from utils import Cache
 from models import Client
-from restapi.tokens import validate_access_token
+from rest.tokens import validate_access_token
 
 
 class BaseAuthentication:
@@ -27,13 +27,13 @@ class BaseAuthentication:
     def authenticate(self):
         authorization_header = request.headers.get('Authorization')
         if not authorization_header:
-            raise BadRequest('Missing Authorization header.')
+            return None
 
         scheme, _, credentials = authorization_header.partition(' ')
         if not credentials:
             raise BadRequest('Invalid Authorization header.')
 
-        if scheme != self.scheme:
+        if scheme.upper() != self.scheme:
             return None
 
         return self.validate_credentials(credentials)
@@ -43,7 +43,7 @@ class BaseAuthentication:
 
 
 class BasicAuthenticator(BaseAuthentication):
-    scheme = 'Basic'
+    scheme = 'BASIC'
     
     def validate_credentials(self, credentials):
         decoded_credentials = b64decode(credentials)
@@ -66,7 +66,7 @@ class BasicAuthenticator(BaseAuthentication):
 
 
 class JWTAuthenticator(BaseAuthentication):
-    scheme = 'Bearer'
+    scheme = 'BEARER'
 
     def validate_credentials(self, credentials):
         payload = validate_access_token(credentials)
@@ -83,7 +83,7 @@ class JWTAuthenticator(BaseAuthentication):
 class HMACAuthenticator(BaseAuthentication):    
     """
         Example:
-        Authorization: HMAC-SHA256 username:signature
+        Authorization: HS256 username:signature
     """
     scheme = 'HS256'
 
