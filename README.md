@@ -4,7 +4,8 @@ A template for creating new Flask APIs
 Default project structure that I use for creating new Flask APIs
 
 Features
-- gunicorn wsgi
-- redis cache
+- Gunicorn wsgi
+- Redis cache
+- Mongodb 
 - jwt tokens
 - healthz endpoint
