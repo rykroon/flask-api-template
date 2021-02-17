@@ -1,44 +1,47 @@
 from flask import Blueprint, g, jsonify, request
 from flask.views import MethodView
+import jwt
+import os
+import time
+import uuid
 
-from rest.throttling import throttle
+from rest import APIView
 from models import Client
 
 
 bp = Blueprint('tokens', __name__)
 
 
-class Token(MethodView):
-    decorators = [throttle(rate='1/s', scope='tokens')]
+jwt_access_token_expires = int(os.getenv('JWT_ACCESS_TOKEN_EXPIRES', 60 * 15))
+
+
+class TokenView(APIView):
 
     def post(self):
-        client_id = request.json.get('client_id')
-        client = Client.objects.get(id=client_id)
+        headers = {
+            'typ': 'at+jwt', 
+            'kid': g.client.pk
+        }
 
-        grant_type = request.json.get('grant_type')
+        now = time.time()
 
-        if grant_type == 'password':
-            return self.password_grant()
+        payload = {
+            'iss': request.base_url,
+            'sub': g.client.pk,
+            'exp': now + jwt_access_token_expires,
+            'iat': now,
+            'jti': str(uuid.uuid4())
+        }
 
-        if grant_type == 'refresh_token':
-            return self.refresh_token_grant()
-
-    def password_grant(self):
-        username = request.json.get('username')
-        password = request.json.get('password')
-
-        # user = User.objects.get(email_address=username)
-        # if not user.check_password(password):
-        #     raise Exception
-
-        return jsonify(
-            access_token='',
-            token_type='bearer',
-            expires_in='',
-            refresh_token=''
+        token = jwt.encode(
+            payload=payload, 
+            key=g.client.secret_key, 
+            headers=headers
         )
 
-    def refresh_token_grant(self):
-        pass
-        
+        return jsonify(
+            access_token=token,
+            token_type='bearer',
+            expires_in=jwt_access_token_expires,
+        )
 

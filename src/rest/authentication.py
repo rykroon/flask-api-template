@@ -11,7 +11,6 @@ from werkzeug.exceptions import BadRequest, Unauthorized
 
 from utils import Cache
 from models import Client
-from rest.tokens import validate_access_token
 
 
 class BaseAuthentication:
@@ -42,7 +41,7 @@ class BaseAuthentication:
         raise NotImplementedError
 
 
-class BasicAuthenticator(BaseAuthentication):
+class BasicAuthentication(BaseAuthentication):
     scheme = 'BASIC'
     
     def validate_credentials(self, credentials):
@@ -65,22 +64,32 @@ class BasicAuthenticator(BaseAuthentication):
         return client
 
 
-class JWTAuthenticator(BaseAuthentication):
+class TokenAuthentication(BaseAuthentication):
     scheme = 'BEARER'
 
     def validate_credentials(self, credentials):
-        payload = validate_access_token(credentials)
-        sub = payload.get('sub')
-        client = Client.objects.filter(pk=sub).first()
-        if not client:
-            raise Unauthorized(
-                'Invalid user',
-                www_authenticate=self.www_authenticate
+        headers = jwt.get_unverified_header(credentials)
+        if headers.get('typ') != 'at+jwt':
+            raise Unauthorized
+
+        client_id = headers.get('kid')
+        client = Client.objects.filter(pk=client_id).first()
+        if client is None:
+            raise Unauthorized
+
+        try:
+            payload = jwt.decode(
+                credentials, 
+                key=client.secret_key, 
+                issuer=request.base_url
             )
+        except Exception as e:
+            raise Unauthorized
+
         return client
 
 
-class HMACAuthenticator(BaseAuthentication):    
+class HMACAuthentication(BaseAuthentication):    
     """
         Example:
         Authorization: HS256 username:signature
