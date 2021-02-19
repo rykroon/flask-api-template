@@ -9,3 +9,4 @@ RUN apt-get update -y && \
 	pip install -r requirements.txt
 
 EXPOSE 8000
+CMD [ "gunicorn", "--config", "./gunicorn.conf.py", "main:create_app()" ]

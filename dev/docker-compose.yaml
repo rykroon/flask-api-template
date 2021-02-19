@@ -4,7 +4,6 @@ services:
     build: 
       context: ../
       dockerfile: dev/Dockerfile
-    command: gunicorn main:create_app() --bind 0.0.0.0 --reload
     container_name: my_api
     depends_on:
       - redis_svc
