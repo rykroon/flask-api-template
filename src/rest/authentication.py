@@ -156,18 +156,3 @@ class HMACAuthentication(BaseAuthentication):
             )
         cache.set(key, '')
 
-
-def decorator_factory(authenticator_class):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            authenticator = authenticator_class()
-            g.client = authenticator.authenticate()
-            return func(*args, **kwargs)
-        return wrapper
-    return decorator
-
-
-basic_auth = decorator_factory(BasicAuthenticator)
-jwt_auth = decorator_factory(JWTAuthenticator)
-hmac_auth = decorator_factory(HMACAuthenticator)

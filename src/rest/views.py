@@ -1,13 +1,14 @@
 from flask import g, request
 from flask.views import MethodView
 from mongoengine.errors import InvalidQueryError, ValidationError
-from werkzeug.exceptions import BadRequest, Forbidden
+from werkzeug.exceptions import BadRequest, Forbidden, InternalServerError
 
 
 class APIView(MethodView):
 
     authentication_classes = []
     permission_classes = []
+    throttle_classes = []
 
     def dispatch_request(self):
         try:
@@ -20,6 +21,9 @@ class APIView(MethodView):
         except InvalidQueryError as e:
             raise BadRequest(str(e))
 
+        except Exception as e:
+            raise InternalServerError(e)
+
     def initial(self):
         self.perform_authnetication()
         self.check_permissions()
@@ -29,6 +33,9 @@ class APIView(MethodView):
 
     def get_permissions(self):
         return [permission() for permission in self.permission_classes]
+
+    def get_throttles(self):
+        return [throttle() for throttle in self.throttle_classes]
 
     def perform_authnetication(self):
         g.client = None
@@ -41,5 +48,12 @@ class APIView(MethodView):
         for permission in self.get_permissions():
             if not permission.has_permission():
                 raise Forbidden(permission.message)
+
+    def check_throttles(self):
+        throttle_durations = []
+        for throttle in self.get_throttles():
+            if not throttle.allow_request():
+                throttle_durations.append(throttle.wait())
+
 
 
