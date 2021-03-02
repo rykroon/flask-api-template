@@ -6,20 +6,31 @@ from utils import Cache
 
 
 class BaseThrottle:
-    scope = None
-    rate = None
-
-    def __init__(self):
-        if self.scope is None or self.rate is None:
-            raise NotImplementedError
-
-        self.num_of_requests, self.duration = self.parse_rate(self.rate)
-        self.cache = Cache(key_prefix='throttle', timeout=self.duration)
+    def allow_request(self):
+        raise NotImplementedError
 
     def get_ident(self):
         if request.access_route:
             return ','.join(request.access_route)
         return request.remote_addr or '127.0.0.1'
+
+    def wait(self):
+        raise NotImplementedError
+
+
+class MovingWindowThrottle(BaseThrottle):
+    scope = None
+    rate = None
+
+    def __init__(self, scope=None, rate=None):
+        if scope:
+            self.scope = scope
+
+        if rate:
+            self.rate = rate
+
+        self.num_of_requests, self.duration = self.parse_rate(self.rate)
+        self.cache = Cache(key_prefix='throttle', timeout=self.duration)
 
     def get_cache_key(self):
         """
@@ -65,31 +76,33 @@ class BaseThrottle:
         return remaining_duration / float(available_requests)
 
 
-class AnonRateThrottle(BaseThrottle):
+class AnonThrottle(MovingWindowThrottle):
     scope = 'anon'
     rate = '6/minute'
 
     def get_ident(self):
         if g.client is not None:
+            #return None if the request is authenticated.
             return None
         return super().get_ident()
 
 
-class UserRateThrottle(BaseThrottle):
-    scope = 'user'
+class ClientThrottle(MovingWindowThrottle):
+    scope = 'client'
     rate = '1000/hour'
 
     def get_ident(self):
         if g.client:
             return g.client.pk
+        #if the request is not authenticated full back to the ip address.
         return super().get_ident()
 
 
-class BurstRateThrottle(UserRateThrottle):
+class BurstThrottle(ClientThrottle):
     scope = 'burst'
     rate = '60/minute'
 
 
-class SustainedRateThrottle(UserRateThrottle):
+class SustainedThrottle(ClientThrottle):
     scope = 'sustained'
     rate = '10000/day'
