@@ -1,5 +1,3 @@
-from functools import wraps
-from math import ceil
 import time
 from flask import current_app, g, request
 from utils import Cache
@@ -49,6 +47,8 @@ class MovingWindowThrottle(BaseThrottle):
     def allow_request(self):
         key = self.get_cache_key()
         if key is None:
+            #if they key is None then the throttle does
+            # not apply to the request and can be ignored.
             return True
 
         self.history = self.cache.get(key, [])

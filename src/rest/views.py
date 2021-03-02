@@ -58,7 +58,9 @@ class APIView(MethodView):
         throttle_durations = []
         for throttle in self.get_throttles():
             if not throttle.allow_request():
-                throttle_durations.append(throttle.wait())
+                retry_after = throttle.wait()
+                if retry_after:
+                    throttle_durations.append(retry_after)
 
         duration = max(throttle_durations, default=None)
         if duration:
