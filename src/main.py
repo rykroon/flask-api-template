@@ -1,5 +1,6 @@
 from flask import Flask, current_app, g
 from utils import JSONEncoder, get_redis_client, error_handlers
+from views import blueprints
 
 
 def create_app():
@@ -8,6 +9,9 @@ def create_app():
 
     for exc, handler in error_handlers.items():
         app.register_error_handler(exc, handler)
+
+    for bp in blueprints:
+        app.register_blueprint(bp)
 
     @app.before_request
     def before_request():
