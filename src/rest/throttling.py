@@ -1,29 +1,31 @@
 from functools import wraps
 from math import ceil
 import time
-from flask import g, request
+from flask import current_app, g, request
 from utils import Cache
 
 
-class Throttle:
-    def __init__(self, scope, rate):
-        """
-            :param scope: can be either 'anon' or 'user'
-            :param rate: {num_requests}/{period} 
-        """
-        self.scope = scope
-        self.num_of_requests, self.duration = self.parse_rate(rate)
+class BaseThrottle:
+    scope = None
+    rate = None
+
+    def __init__(self):
+        if self.scope is None or self.rate is None:
+            raise NotImplementedError
+
+        self.num_of_requests, self.duration = self.parse_rate(self.rate)
         self.cache = Cache(key_prefix='throttle', timeout=self.duration)
 
+    def get_ident(self):
+        if request.access_route:
+            return ','.join(request.access_route)
+        return request.remote_addr or '127.0.0.1'
+
     def get_cache_key(self):
-        ident = None
-        if self.scope == 'anon':
-            ident = request.remote_addr or '127.0.0.1'
-
-        if self.scope == 'user':
-            if g.client:
-                ident = g.client.pk
-
+        """
+            concatenates the scope and the identifier
+        """
+        ident = self.get_ident()
         if ident is not None:
             return '{}:{}'.format(self.scope, ident)
 
@@ -38,16 +40,56 @@ class Throttle:
         if key is None:
             return True
 
-        history = self.cache.get(key, [])
-        now = time.time()
-        while history and history[-1] <= now - self.duration:
-            history.pop()
+        self.history = self.cache.get(key, [])
+        self.now = time.time()
+        while self.history and self.history[-1] <= self.now - self.duration:
+            self.history.pop()
 
-        if len(history) >= self.num_of_requests:
+        if len(self.history) >= self.num_of_requests:
             return False
 
-        history.insert(0, now)
-        self.cache.set(key, history, self.duration)
+        self.history.insert(0, self.now)
+        self.cache.set(key, self.history, self.duration)
         return True
 
- 
+    def wait(self):
+        if self.history:
+            remaining_duration = self.duration - (self.now - self.history[-1])
+        else:
+            remaining_duration = self.duration
+
+        available_requests = self.num_of_requests - len(self.history) + 1
+        if available_requests <= 0:
+            return None
+
+        return remaining_duration / float(available_requests)
+
+
+class AnonRateThrottle(BaseThrottle):
+    scope = 'anon'
+    rate = '6/minute'
+
+    def get_ident(self):
+        if g.client is not None:
+            return None
+        return super().get_ident()
+
+
+class UserRateThrottle(BaseThrottle):
+    scope = 'user'
+    rate = '1000/hour'
+
+    def get_ident(self):
+        if g.client:
+            return g.client.pk
+        return super().get_ident()
+
+
+class BurstRateThrottle(UserRateThrottle):
+    scope = 'burst'
+    rate = '60/minute'
+
+
+class SustainedRateThrottle(UserRateThrottle):
+    scope = 'sustained'
+    rate = '10000/day'
