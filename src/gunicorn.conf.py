@@ -9,5 +9,5 @@ reload = os.getenv('GUNICORN_RELOAD', False)
 
 workers = os.getenv('GUNICORN_WORKERS', 2 * os.cpu_count() + 1)
 
-worker_type = os.getenv('GUNICORN_WORKER_TYPE', 'gevent')
+worker_type = os.getenv('GUNICORN_WORKER_TYPE', 'sync')
 

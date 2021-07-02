@@ -1,4 +1,5 @@
 from flask import Flask, current_app, g
+from auth import AuthenticationMiddleware
 from utils import JSONEncoder, get_redis_client, error_handlers
 from views import blueprints
 
@@ -16,6 +17,15 @@ def create_app():
     @app.before_request
     def before_request():
         g.redis_client = get_redis_client()
+
+    @app.before_request
+    def authentication_middleware():
+        auth_mw = AuthenticationMiddleware(
+            authentication_classes=[
+
+            ]
+        )
+        auth_mw()
 
     @app.route('/healthz', methods=['GET'])
     def health():
