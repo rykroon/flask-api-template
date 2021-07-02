@@ -18,6 +18,13 @@ class BaseUser:
 
 class SimpleUser(BaseUser):
 
+    def __init__(self, username):
+        self.username = username
+
+    @property
+    def identifier(self):
+        return self.username
+
     @property
     def is_authenticated(self):
         return True

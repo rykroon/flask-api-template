@@ -1,5 +1,6 @@
 from base64 import b64decode
 from flask import request
+from .models import SimpleUser
 
 
 class BaseAuthentication:
@@ -45,7 +46,7 @@ class BasicAuthentication(SchemeAuthentication):
         return self.validate_user(username, password)
 
     def validate_user(self, username, password):
-        raise NotImplementedError
+        return SimpleUser(username=username)
 
 
 class BearerAuthentication(SchemeAuthentication):
