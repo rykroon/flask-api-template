@@ -1,6 +1,5 @@
 from functools import update_wrapper
 import time
-from cachelib import SimpleCache
 from flask import g
 from werkzeug.exceptions import TooManyRequests
 
@@ -52,7 +51,9 @@ class BaseThrottle:
 
 class SimpleThrottle(BaseThrottle):
 
-    cache = SimpleCache()
+    @property
+    def cache(self):
+        return g.cache
 
     def allow_request(self):
         if not self.durations:
