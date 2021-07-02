@@ -1,6 +1,6 @@
-Flask==1.1.2
+cachelib==0.2.0
+Flask==2.0.1
 gunicorn==20.0.4
-mongoengine==0.20.0
 phonenumbers==8.12.12
 PyJWT==1.7.1
 pytest==6.1.1
