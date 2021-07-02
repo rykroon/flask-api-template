@@ -1,31 +1,50 @@
+import os
+from cachelib import RedisCache
 from flask import Flask, current_app, g
-from auth import AuthenticationMiddleware
-from utils import JSONEncoder, get_redis_client, error_handlers
-from views import blueprints
+import redis
+from auth import AuthenticationMiddleware, BasicAuthentication
+from utils import JSONEncoder, error_handlers
+#from views import blueprints
 
 
 def create_app():
     app = Flask(__name__)
+
+    #json
     app.json_encoder = JSONEncoder
 
+    #redis
+    redis_host = os.getenv('REDIS_HOST')
+    redis_pass = os.getenv('REDIS_PASSWORD')
+    app.config['REDIS_CONNECTION_POOL'] = redis.ConnectionPool(
+        host=redis_host, 
+        password=redis_pass, 
+        db=0
+    )
+
+    #exception handlers
     for exc, handler in error_handlers.items():
         app.register_error_handler(exc, handler)
 
-    for bp in blueprints:
-        app.register_blueprint(bp)
+    #blueprints
+    # for bp in blueprints:
+    #     app.register_blueprint(bp)
 
+    #before request
     @app.before_request
-    def before_request():
-        g.redis_client = get_redis_client()
-
-    @app.before_request
-    def authentication_middleware():
-        auth_mw = AuthenticationMiddleware(
-            authentication_classes=[
-
-            ]
+    def redis_connection():
+        g.redis_client = redis.Redis(
+            connection_pool=app.config['REDIS_CONNECTION_POOL']
         )
-        auth_mw()
+        g.cache = RedisCache(host=g.redis_client)
+
+    @app.before_request
+    def auth_middleware():
+        AuthenticationMiddleware(
+            authentication_classes=[
+                BasicAuthentication
+            ]
+        )()
 
     @app.route('/healthz', methods=['GET'])
     def health():
