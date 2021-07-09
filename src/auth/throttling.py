@@ -41,8 +41,9 @@ class BaseThrottle:
         self.durations = {k: v for k, v in self.durations.items() if v is not None}
 
     def __call__(self, *args, **kwargs):
-        if not self.allow_request():
-            raise TooManyRequests
+        allowed, retry_after = self.allow_request()
+        if not allowed:
+            raise TooManyRequests(retry_after=retry_after)
         return self.func(*args, **kwargs)
 
     def allow_request(self):
@@ -56,8 +57,11 @@ class SimpleThrottle(BaseThrottle):
         return g.cache
 
     def allow_request(self):
+        """
+            Returns a 2-tuple of (allow, retry_after)
+        """
         if not self.durations:
-            return True
+            return True, None
 
         cache_key = 'throttle:{scope}:{user}'.format(
             scope=self.__class__.__name__,
@@ -76,11 +80,16 @@ class SimpleThrottle(BaseThrottle):
             temp_history.slide_window(duration, now)
 
             if len(temp_history) >= num_requests:
-                return False
+                if temp_history:
+                    remaining_duration = duration - (now - temp_history[-1])
+                else:
+                    remaining_duration = duration
+                
+                return False, remaining_duration
 
         history.add_request(now)
         self.cache.set(cache_key, history, max_duration)
-        return True
+        return True, None
 
     def retry_after(self):
         if self.history:
