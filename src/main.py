@@ -2,7 +2,7 @@ import os
 from cachelib import RedisCache
 from flask import Flask, current_app, g
 import redis
-from auth import AuthenticationMiddleware, BasicAuthentication
+from flaskauth import AuthenticationMiddleware, BasicAuthentication
 from utils import JSONEncoder, error_handlers
 #from views import blueprints
 
