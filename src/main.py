@@ -1,8 +1,9 @@
 import os
 from cachelib import RedisCache
-from flask import Flask, current_app, g
+from flask import Flask, g
 import redis
 from flaskauth import AuthenticationMiddleware, BasicAuthentication
+from utils.cache import get_redis_client
 from utils import JSONEncoder, error_handlers
 #from views import blueprints
 
@@ -14,13 +15,7 @@ def create_app():
     app.json_encoder = JSONEncoder
 
     #redis
-    redis_host = os.getenv('REDIS_HOST')
-    redis_pass = os.getenv('REDIS_PASSWORD')
-    app.config['REDIS_CONNECTION_POOL'] = redis.ConnectionPool(
-        host=redis_host, 
-        password=redis_pass, 
-        db=0
-    )
+    app.config['REDIS_CLIENT'] = get_redis_client()
 
     #exception handlers
     for exc, handler in error_handlers.items():
@@ -33,9 +28,7 @@ def create_app():
     #before request
     @app.before_request
     def redis_connection():
-        g.redis_client = redis.Redis(
-            connection_pool=app.config['REDIS_CONNECTION_POOL']
-        )
+        g.redis_client = app.config['REDIS_CLIENT']
         g.cache = RedisCache(host=g.redis_client)
 
     @app.before_request

@@ -1,24 +1,42 @@
 from functools import wraps
 import pickle
-from flask import g, request
+import os
+
+from flask import current_app, g, request, has_app_context, has_request_context
+import redis
 
 # use 'Undefined' to differentiate between 'None' and 
 # the absense of passing in a value.
 Undefined = object()
 
 
+def get_redis_client():
+    if has_request_context():
+        return g.redis_client
+
+    if has_app_context():
+        return current_app.config['REDIS_CLIENT']
+
+    return redis.StrictRedis(
+        host=os.getenv('REDIS_HOST'),
+        password=os.getenv('REDIS_PASSWORD'),
+        db=0
+    )
+
+
 class Cache:
     def __init__(self, key_prefix=None, timeout=Undefined):
         self.key_prefix = key_prefix
         self.default_timeout = 300 if timeout is Undefined else timeout
+        self._client = get_redis_client()
 
     def __contains__(self, key):
         key = self._make_key(key)
-        return key in g.redis_client
+        return key in self._client
 
     def get(self, key, default=None):
         key = self._make_key(key)
-        value = g.redis_client.get(key)
+        value = self._client.get(key)
         if value is None:
             return default
         
@@ -31,16 +49,16 @@ class Cache:
         key = self._make_key(key)
         value = pickle.dumps(value)
         timeout = self.default_timeout if timeout is Undefined else timeout
-        return g.redis_client.set(key, value, ex=timeout)
+        return self._client.set(key, value, ex=timeout)
 
     def touch(self, key, timeout=Undefined):
         key = self._make_key(key)
         timeout = self.default_timeout if timeout is Undefined else timeout
-        return g.redis_client.expire(key, timeout)
+        return self._client.expire(key, timeout)
 
     def delete(self, key):
         key = self._make_key(key)
-        return g.redis_client.delete(key) == 1
+        return self._client.delete(key) == 1
 
     def _make_key(self, key):
         if self.key_prefix:
