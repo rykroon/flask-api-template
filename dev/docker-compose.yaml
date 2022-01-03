@@ -9,15 +9,15 @@ services:
       - redis_svc
       - mongo_svc
     env_file:
-      - env
+      - .env
     image: my_api_img
     networks:
       - my_network
     ports:
       - "80:8000"
     volumes:
-      - '../src:/app/host_src'
-    working_dir: /app/host_src
+      - '../app:/usr/src/host_app'
+    working_dir: /usr/src/host_app
   mongo_svc:
     container_name: my_mongo
     image: mongo

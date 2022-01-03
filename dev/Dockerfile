@@ -1,7 +1,7 @@
-FROM python:3.8-slim
+FROM python:3.9-slim
 
-WORKDIR /app
-COPY src .
+WORKDIR /usr/src/app
+COPY app .
 
 RUN apt-get update -y && \ 
 	apt-get upgrade -y && \
@@ -10,4 +10,4 @@ RUN apt-get update -y && \
 	pip install wheels/*
 
 EXPOSE 8000
-CMD [ "gunicorn", "--config", "./gunicorn.conf.py", "main:create_app()" ]
+CMD [ "gunicorn", "--config", "gunicorn.conf.py", "main:create_app()" ]
