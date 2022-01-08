@@ -1,27 +1,11 @@
 from functools import wraps
 import pickle
-import os
 
-from flask import current_app, g, request, has_app_context, has_request_context
-import redis
+from flask import g, request
 
 # use 'Undefined' to differentiate between 'None' and 
 # the absense of passing in a value.
 Undefined = object()
-
-
-def get_redis_client():
-    if has_request_context():
-        return g.redis_client
-
-    if has_app_context():
-        return current_app.config['REDIS_CLIENT']
-
-    return redis.StrictRedis(
-        host=os.getenv('REDIS_HOST'),
-        password=os.getenv('REDIS_PASSWORD'),
-        db=0
-    )
 
 
 class Cache:

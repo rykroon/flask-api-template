@@ -3,7 +3,7 @@ from cachelib import RedisCache
 from flask import Flask, g
 import redis
 from flaskauth import AuthenticationMiddleware, BasicAuthentication
-from utils.cache import get_redis_client
+from utils.db import get_redis_client
 from utils import JSONEncoder, error_handlers
 #from views import blueprints
 
