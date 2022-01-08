@@ -5,7 +5,7 @@ from utils.middleware import AuthenticationMiddleware
 from views.api.tokens import bp as tokens_bp
 
 
-bp = Blueprint('api', __name__)
+bp = Blueprint('api', __name__, url_prefix='/api')
 
 
 @bp.before_request

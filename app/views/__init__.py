@@ -1,7 +1,5 @@
 from flask import Blueprint
 
-from utils.auth import BasicAuthentication
-from utils.middleware import AuthenticationMiddleware
 from views.api import bp as api_bp
 
 

@@ -4,7 +4,7 @@ from flask import Flask, g
 
 from utils.db import get_redis_client
 from utils import JSONEncoder, error_handlers
-#from views import blueprints
+from views import bp as views_bp
 
 
 def create_app():
@@ -21,22 +21,13 @@ def create_app():
         app.register_error_handler(exc, handler)
 
     #blueprints
-    # for bp in blueprints:
-    #     app.register_blueprint(bp)
+    app.register_blueprint(views_bp)
 
     #before request
     @app.before_request
     def before_request():
         g.redis_client = app.config['REDIS_CLIENT']
         g.cache = RedisCache(host=g.redis_client)
-
-    # @app.before_request
-    # def auth_middleware():
-    #     AuthenticationMiddleware(
-    #         authentication_classes=[
-    #             BasicAuthentication
-    #         ]
-    #     )()
 
     @app.route('/healthz', methods=['GET'])
     def health():
