@@ -3,7 +3,9 @@ from cachelib import RedisCache
 from flask import Flask, g
 
 from utils.db import get_redis_client
-from utils import JSONEncoder, error_handlers
+from utils.error_handlers import error_handlers
+from utils.json import JSONEncoder
+from utils.logging import get_logger
 from views import bp as views_bp
 
 
@@ -12,6 +14,9 @@ def create_app():
 
     #json
     app.json_encoder = JSONEncoder
+
+    #logger
+    app.logger = get_logger()
 
     #redis
     app.config['REDIS_CLIENT'] = get_redis_client()
