@@ -33,6 +33,7 @@ def create_app():
     def before_request():
         g.redis_client = app.config['REDIS_CLIENT']
         g.cache = RedisCache(host=g.redis_client)
+        g.logger = app.logger
 
     @app.route('/healthz', methods=['GET'])
     def health():
