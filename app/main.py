@@ -1,8 +1,7 @@
 import os
 from cachelib import RedisCache
 from flask import Flask, g
-import redis
-from flaskauth import AuthenticationMiddleware, BasicAuthentication
+
 from utils.db import get_redis_client
 from utils import JSONEncoder, error_handlers
 #from views import blueprints
@@ -27,17 +26,17 @@ def create_app():
 
     #before request
     @app.before_request
-    def redis_connection():
+    def before_request():
         g.redis_client = app.config['REDIS_CLIENT']
         g.cache = RedisCache(host=g.redis_client)
 
-    @app.before_request
-    def auth_middleware():
-        AuthenticationMiddleware(
-            authentication_classes=[
-                BasicAuthentication
-            ]
-        )()
+    # @app.before_request
+    # def auth_middleware():
+    #     AuthenticationMiddleware(
+    #         authentication_classes=[
+    #             BasicAuthentication
+    #         ]
+    #     )()
 
     @app.route('/healthz', methods=['GET'])
     def health():
