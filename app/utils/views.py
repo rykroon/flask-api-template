@@ -1,5 +1,6 @@
 from flask.views import MethodView
+from utils.auth import is_authenticated
 
 
 class APIView(MethodView):
-    pass
+    decorators = [is_authenticated]
