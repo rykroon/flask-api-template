@@ -4,34 +4,35 @@ services:
     build: 
       context: ../
       dockerfile: dev/Dockerfile
-    container_name: my_api
+    container_name: api-dev
     depends_on:
       - redis_svc
       - mongo_svc
     env_file:
       - .env
-    image: my_api_img
+    image: api-img
     networks:
-      - my_network
+      - api-network
     ports:
       - "80:8000"
     volumes:
       - '../app:/usr/src/host_app'
     working_dir: /usr/src/host_app
   mongo_svc:
-    container_name: my_mongo
+    container_name: api-mongo
     image: mongo
     networks: 
-      - my_network
+      - api-network
     ports:
       - "27017:27017"
   redis_svc: 
-    container_name: my_redis
+    container_name: api-redis
     image: redis
     networks:        
-      - my_network
+      - api-network
     ports:
       - "6379:6379"
 networks:
-  my_network:
+  api-network:
+    name: api-network
 
