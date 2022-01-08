@@ -3,6 +3,8 @@ import pickle
 
 from flask import g, request
 
+from utils.db import get_redis_client
+
 # use 'Undefined' to differentiate between 'None' and 
 # the absense of passing in a value.
 Undefined = object()
