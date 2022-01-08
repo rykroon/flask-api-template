@@ -1,6 +1,6 @@
 import os
 
-from flask import current_app, has_app_context, has_request_context
+from flask import current_app, g, has_app_context, has_request_context
 import redis
 
 
