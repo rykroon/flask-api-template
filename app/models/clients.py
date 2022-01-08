@@ -1,25 +1,16 @@
 from secrets import token_urlsafe
-from typing import Optional
 
-from flask import current_app
-from pydantic import Field, HttpUrl
+from mongoengine.fields import StringField, URLField
 
-from mongomini import Document
-
-from .base import BaseDocument, BaseSchema
-
-
-class ClientSchema(BaseSchema):
-    name: str
-    description: Optional[str]
-    secret_key: str = Field(default_factory=token_urlsafe)
-    webhook_url: Optional[HttpUrl]
+from models.base import BaseDocument
 
 
 class Client(BaseDocument):
-    class Config:
-        db = current_app.config['MONGODB_DATABASE']
-        collection_name = 'clients'
-        fields = ClientSchema.get_field_names()
-        
+    meta = {
+        'collection': 'clients'
+    }
 
+    name = StringField()
+    description = StringField()
+    secret_key = StringField()
+    webhook_url = URLField()
