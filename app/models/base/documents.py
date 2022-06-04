@@ -8,7 +8,8 @@ class BaseDocument(Document):
 
     meta = {
         'abstract': True,
-        'allow_inheritance': True
+        'allow_inheritance': True,
+        'strict': False
     }
 
     uuid = UUIDField(binary=False, required=True, default=uuid.uuid4)

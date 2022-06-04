@@ -1,24 +1,37 @@
+from dataclasses import is_dataclass, asdict
 from datetime import datetime, date, time
 from decimal import Decimal
 import json
 from uuid import UUID
 
+from bson import ObjectId
+from mongoengine import Document
+
+
+JSON_SEPARATORS = (',', ':')
+
 
 class JSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, bytes):
-            return o.decode()
+    def default(self, obj):
+        if isinstance(obj, bytes):
+            return obj.decode()
 
-        if isinstance(o, (datetime, date, time)):
-            return o.isoformat()
+        if isinstance(obj, (datetime, date, time)):
+            return obj.isoformat()
 
-        if isinstance(o, Decimal):
-            return float(o)
+        if is_dataclass(obj):
+            return asdict(obj)
 
-        if isinstance(o, UUID):
-            return str(o)
+        if isinstance(obj, Decimal):
+            return float(obj)
 
-        return super().default(o)
+        if isinstance(obj, (ObjectId, UUID)):
+            return str(obj)
+
+        if isinstance(obj, Document):
+            return obj._data
+
+        return super().default(obj)
 
 
 class JSONDecoder(json.JSONDecoder):

@@ -1,13 +1,8 @@
 import os
 
 from flask import current_app, g, has_app_context, has_request_context
+from mongoengine import connect
 import redis
-
-
-mongo_db = os.getenv('MONGO_DB')
-mongo_host = os.getenv('MONGO_HOST', 'localhost')
-mongo_port = os.getenv('MONGO_PORT', 27017)
-#connect(mongo_db, host=mongo_host, port=mongo_port)
 
 
 def get_redis_client():
@@ -22,3 +17,20 @@ def get_redis_client():
         password=os.getenv('REDIS_PASSWORD'),
         db=0
     )
+
+
+def get_mongodb_client():
+
+    if has_request_context():
+        return g.mongodb_client
+
+    if has_app_context():
+        return current_app.config['MONGODB_CLIENT']
+
+    username = os.getenv('MONGODB_USERNAME')
+    password = os.getenv('MONGODB_PASSWORD')
+    host = os.getenv('MONGODB_HOST')
+    dbname = os.getenv('MONGODB_DBNAME', username)
+
+    uri = f'mongodb+srv://{username}:{password}@{host}/{dbname}'
+    return connect(host=uri)
