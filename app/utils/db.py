@@ -15,7 +15,7 @@ def get_redis_client():
     return redis.StrictRedis(
         host=os.getenv('REDIS_HOST'),
         password=os.getenv('REDIS_PASSWORD'),
-        db=0
+        db=int(os.getenv('REDIS_DB', 0))
     )
 
 
