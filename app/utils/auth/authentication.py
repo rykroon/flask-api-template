@@ -3,8 +3,6 @@ from base64 import b64decode
 from flask import request
 from werkzeug.exceptions import Unauthorized
 
-from models import Client
-
 
 class AuthenticationBackend:
 
@@ -15,7 +13,6 @@ class AuthenticationBackend:
 class SchemeAuthentication(AuthenticationBackend):
 
     scheme = None
-
 
     def authenticate(self):
         authorization = request.headers.get('Authorization')
@@ -33,16 +30,17 @@ class SchemeAuthentication(AuthenticationBackend):
 
 
 class BasicAuthentication(SchemeAuthentication):
+    scheme = 'basic'
 
     def validate_credentials(self, credentials):
         decoded_credentials = b64decode(credentials).decode()
         username, _, password = decoded_credentials.partition(':')
-        return validate_user(username, password)
+        return self.validate_user(username, password)
 
     def validate_user(self, username, password):
-        client = Client.objects.filter(pk=username).first()
-        if client is None:
-            raise Unauthorized
+        raise NotImplementedError
 
-        if client.password != password:
-            raise Unauthorized
+
+class BearerAuthentication(SchemeAuthentication):
+    scheme = 'bearer'
+
