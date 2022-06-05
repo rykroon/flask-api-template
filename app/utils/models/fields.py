@@ -1,6 +1,5 @@
 from dataclasses import is_dataclass, asdict
 from inspect import isclass
-from typing import Dict
 
 from mongoengine.errors import ValidationError
 from mongoengine.fields import DictField
