@@ -30,7 +30,12 @@ def get_mongodb_client():
     username = os.getenv('MONGODB_USERNAME')
     password = os.getenv('MONGODB_PASSWORD')
     host = os.getenv('MONGODB_HOST')
+    port = os.getenv('MONGODB_PORT', 27017)
     dbname = os.getenv('MONGODB_DBNAME', username)
 
-    uri = f'mongodb+srv://{username}:{password}@{host}/{dbname}'
+    uri = 'mongodb://'
+    if username and password:
+        uri += f'{username}:{password}@'
+
+    uri += f'{host}:{port}/{dbname}'
     return connect(host=uri)
