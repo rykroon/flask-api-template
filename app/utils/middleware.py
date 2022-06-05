@@ -7,10 +7,10 @@ class AuthenticationMiddleware:
 
     def __call__(self):
         for auth in self.get_authenticators():
-            g.client = auth.authenticate()
-            if g.client is not None:
+            g.user = auth.authenticate()
+            if g.user is not None:
                 return
-        g.client = None
+        g.user = None
 
     def get_authenticators(self):
         return (auth() for auth in self.authentication_classes)
