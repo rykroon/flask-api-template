@@ -1,8 +1,9 @@
 from dataclasses import is_dataclass, asdict
 from inspect import isclass
+from tokenize import String
 
 from mongoengine.errors import ValidationError
-from mongoengine.fields import DictField
+from mongoengine.fields import DictField, StringField
 
 
 class DataclassField(DictField):
@@ -22,4 +23,19 @@ class DataclassField(DictField):
 
     def validate(self, value):
         if not isinstance(value, self.dataclass):
+            raise ValidationError
+
+
+class IdentifierField(StringField):
+
+    def validate(self, value):
+        super().validate(value)
+
+        if not value.isidentifier():
+            raise ValidationError
+
+        if any(char.isupper() for char in value):
+            raise ValidationError
+
+        if not value[0].islower():
             raise ValidationError
