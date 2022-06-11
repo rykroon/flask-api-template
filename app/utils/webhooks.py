@@ -1,46 +1,26 @@
-from hashlib import sha256
-import hmac
-import time
-import uuid
-import requests
-from requests.auth import AuthBase
+from dataclasses import dataclass
+import httpx
+import json
 
 
+@dataclass
 class Webhook:
-    def __init__(self, url, event_type, data, method='POST', auth=None):
-        self.method = method
-        self.url = url
-        self.event_type = event_type
-        self.data = data
-        self.auth = auth
+    url: str
+    data: dict
+    secret_key: str = None
 
-    def send(self):
-        payload = dict(
-            event_type=self.event_type,
-            data=self.data
+    def send_via_http(self):
+        with httpx.Client() as client:
+            req = self._create_request()
+            resp = client.send(req)
+        return resp.is_success
+
+    def _create_request(self):
+        content = json.dumps(self.data)
+        request = httpx.Request(
+            method='POST',
+            url=self.url,
+            content=content
         )
-        return requests.request(method=self.method, url=self.url, auth=self.auth, json=payload)
-
-
-class WebhookHMACAuth(AuthBase):
-    def __init__(self, secret_key):
-        self.secret_key = secret_key
-
-    def __call__(self, req):
-        timestamp = str(time.time())
-        nonce = str(uuid.uuid4().int)
-        message = '{}{}{}'.format(req.body, timestamp, nonce)
-
-        h = hmac.HMAC(self.secret_key.encode(), message.encode(), sha256)
-        signature = h.hexdigest()
-
-        req.headers.update({
-            'Signature': signature,
-            'Timestamp': timestamp,
-            'Nonce': nonce
-        })
-
-        return req
-
-        
-
+        request.headers['Content-Type'] = 'application/json'
+        return request
