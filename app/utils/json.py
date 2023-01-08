@@ -1,6 +1,7 @@
 from dataclasses import is_dataclass, asdict
 from datetime import datetime, date, time
 from decimal import Decimal
+from enum import Enum
 import json
 from uuid import UUID
 
@@ -24,6 +25,9 @@ class JSONEncoder(json.JSONEncoder):
 
         if isinstance(obj, Decimal):
             return float(obj)
+        
+        if isinstance(obj, Enum):
+            return obj.value
 
         if isinstance(obj, (ObjectId, UUID)):
             return str(obj)
