@@ -1,33 +1,4 @@
-from typing import Protocol, runtime_checkable
-
 from utils.db import get_redis_client
-
-
-@runtime_checkable
-class BackendInterface(Protocol):
-    def __getitem__(self, key):
-        ...
-
-    def __setitem__(self, key, value):
-        ...
-
-    def __delitem__(self, key):
-        ...
-
-    def __contains__(self, key):
-        ...
-
-    def get(self, key, default=None):
-        ...
-
-    def set(self, key, value, ttl=None):
-        ...
-
-    def delete(self, key):
-        ...
-
-    def exists(self, key):
-        ...
 
 
 class RedisBackend:
