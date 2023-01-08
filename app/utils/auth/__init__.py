@@ -1,1 +1,1 @@
-from utils.auth.authentication import BasicAuthentication
+from utils.auth.authn import BasicAuthentication
