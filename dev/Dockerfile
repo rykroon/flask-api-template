@@ -1,10 +1,11 @@
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 WORKDIR /usr/src/app
 COPY app .
 
-RUN apt-get update -y && \ 
+RUN apt-get update && \ 
 	apt-get upgrade -y && \
+	rm -rf /var/lib/apt/lists/* && \
 	python -m pip install --upgrade pip && \
 	pip install -r requirements.txt
 
