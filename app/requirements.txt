@@ -1,5 +1,5 @@
 cachelib==0.5.0
-Flask==2.1.2
+Flask==2.3.2
 gunicorn==20.1.0
 httpx==0.23.0
 mongoengine==0.23.1
