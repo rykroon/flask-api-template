@@ -1,7 +1,7 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
-WORKDIR /usr/src/app
-COPY app .
+WORKDIR /usr/local/src/app
+COPY src .
 
 RUN apt-get update && \ 
 	apt-get upgrade -y && \

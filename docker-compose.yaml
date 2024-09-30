@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    container_name: flask-template
+    env_file:
+      - .env
+    image: flask-template
+    ports:
+      - "80:8000"
+    volumes:
+      - './src:/usr/local/src/host_app'
+    working_dir: /usr/local/src/host_app
