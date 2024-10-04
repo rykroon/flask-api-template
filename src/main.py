@@ -1,7 +1,7 @@
+import logging
 from flask import Flask
 
 from utils.error_handlers import error_handlers
-from utils.logging import get_logger
 from views import bp as views_bp
 
 
@@ -9,7 +9,7 @@ def create_app():
     app = Flask(__name__)
 
     #logger
-    app.logger = get_logger()
+    app.logger = logging.getLogger("gunicorn.error")
 
     #blueprints
     app.register_blueprint(views_bp)
