@@ -8,23 +8,23 @@ from views import bp as views_bp
 def create_app():
     app = Flask(__name__)
 
-    #logger
+    # logger
     app.logger = logging.getLogger("gunicorn.error")
 
-    #blueprints
+    # blueprints
     app.register_blueprint(views_bp)
 
-    #exception handlers
+    # exception handlers
     for exc, handler in error_handlers.items():
         app.register_error_handler(exc, handler)
 
-    @app.route('/healthz', methods=['GET'])
+    @app.route("/healthz", methods=["GET"])
     def health():
         return "OK"
 
     return app
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = create_app()
-    app.run(host='0.0.0.0', debug=True)
+    app.run(host="0.0.0.0", debug=True)

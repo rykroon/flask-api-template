@@ -12,5 +12,6 @@ def handle_server_error(e: Exception):
 
 
 error_handlers = {
-    HTTPException: handle_http_exception, Exception: handle_server_error,
+    HTTPException: handle_http_exception,
+    Exception: handle_server_error,
 }
